@@ -1,0 +1,11 @@
+profile:
+  prosecutor_id: prosecutor_01
+  name: 阚泽民
+  title: 公诉人
+  organization: 某某市人民检察院
+  specialty:
+  - 刑事公诉
+  - 证据审查
+case_state: 空闲
+current_handling_case: null
+case_queue: []

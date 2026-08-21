@@ -1,0 +1,95 @@
+# ═══════════════════════════════════════════════════════════════
+# 刑法适配 — 阶段工具分配清单（纯刑事）
+# 只保留刑事阶段 (INV/PR/DS/CR/CRA) 与委托洽谈 (LC)。
+# ═══════════════════════════════════════════════════════════════
+
+version: 2
+tool_registry_refs:
+  # ── 通用工具（保留）──────────────────────────────────────
+  - search_laws
+  - save_client_memory
+  - save_lawyer_memory
+  # ── 元典法条/案例检索（教学溯源）────────────────────────
+  - search_yuandian_law
+  - search_yuandian_case
+  # ── 刑事工具 ─────────────────────────────────────────────
+  - draft_indictment_document
+  - draft_defense_opinion_document
+  - draft_public_prosecution_document
+  - draft_first_instance_criminal_judgment
+  - draft_second_instance_criminal_judgment
+
+agent_type_defaults:
+  lawyer:
+    - search_laws
+    - search_yuandian_law
+    - search_yuandian_case
+    - save_lawyer_memory
+  client:
+    - save_client_memory
+  judge:
+    - search_laws
+    - search_yuandian_law
+  prosecutor:
+    - search_laws
+    - search_yuandian_law
+  receptionist: []
+
+stages:
+  # ── 委托洽谈（刑事案件入口）──────────────────────────────
+  LC:
+    shared_tools: []
+    role_tools:
+      client: []
+      lawyer: []
+
+  # ── 刑事阶段 ─────────────────────────────────────────────
+  # INV = 侦查阶段: 律师会见 + 了解案情
+  INV:
+    shared_tools: []
+    role_tools:
+      lawyer: []
+      client: []
+      investigator: []
+
+  # PR = 审查起诉阶段: 阅卷 + 听取意见 + 决定是否起诉
+  PR:
+    shared_tools: []
+    role_tools:
+      lawyer: []
+      prosecutor:
+        - draft_indictment_document
+      defendant: []
+
+  # DS = 辩护词起草阶段: 律师在收到起诉书后起草辩护词
+  DS:
+    shared_tools: []
+    role_tools:
+      lawyer:
+        - draft_defense_opinion_document
+      client: []
+      defendant: []
+
+  # CR = 刑事庭审阶段: 一审开庭
+  CR:
+    shared_tools: []
+    role_tools:
+      judge:
+        - draft_first_instance_criminal_judgment
+      prosecutor:
+        - draft_public_prosecution_document
+      client: []
+      defendant: []
+      defense_lawyer: []
+
+  # CRA = 刑事二审庭审 (Criminal Appeal trial)
+  CRA:
+    shared_tools: []
+    role_tools:
+      judge:
+        - draft_second_instance_criminal_judgment
+      prosecutor: []
+      client: []
+      appellant: []
+      appellant_lawyer: []
+      defense_lawyer: []

@@ -1,0 +1,605 @@
+{
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "width": 64,
+  "height": 44,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "nextlayerid": 100,
+  "nextobjectid": 1000,
+  "layers": [
+    {
+      "name": "birth-location",
+      "type": "objectgroup",
+      "visible": true,
+      "opacity": 1,
+      "objects": [
+        {
+          "name": "birth_locationA",
+          "x": 400,
+          "y": 600,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "name": "birth_locationB",
+          "x": -400,
+          "y": 600,
+          "width": 0,
+          "height": 0
+        },
+        {
+          "name": "birth_location_community",
+          "x": 0,
+          "y": 800,
+          "width": 0,
+          "height": 0
+        }
+      ]
+    },
+    {
+      "name": "location",
+      "type": "objectgroup",
+      "visible": true,
+      "opacity": 1,
+      "objects": [
+        {
+          "name": "community",
+          "x": -200,
+          "y": 700,
+          "width": 400,
+          "height": 200
+        },
+        {
+          "name": "lawfirmA",
+          "x": 300,
+          "y": 400,
+          "width": 200,
+          "height": 200,
+          "type": "lawfirm"
+        },
+        {
+          "name": "lawfirmB",
+          "x": -500,
+          "y": 400,
+          "width": 200,
+          "height": 200,
+          "type": "lawfirm"
+        },
+        {
+          "name": "courtBasic",
+          "x": -100,
+          "y": 0,
+          "width": 400,
+          "height": 300,
+          "type": "court"
+        },
+        {
+          "name": "courtIntermediate",
+          "x": -100,
+          "y": -400,
+          "width": 400,
+          "height": 300,
+          "type": "court"
+        }
+      ]
+    },
+    {
+      "name": "lawfirmA",
+      "type": "group",
+      "visible": true,
+      "opacity": 1,
+      "offsetx": 0,
+      "offsety": 0,
+      "layers": [
+        {
+          "name": "chair",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "chair_1",
+              "x": 400,
+              "y": 500,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "chair_2",
+              "x": 440,
+              "y": 500,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "chair_3",
+              "x": 400,
+              "y": 540,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "chair_4",
+              "x": 440,
+              "y": 540,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "chair_5",
+              "x": 400,
+              "y": 580,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "chair_6",
+              "x": 440,
+              "y": 580,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sofa",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "sofa1",
+              "x": 320,
+              "y": 500,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            },
+            {
+              "name": "sofa2",
+              "x": 320,
+              "y": 540,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            },
+            {
+              "name": "sofa3",
+              "x": 320,
+              "y": 580,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "interaction",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "front_desk",
+              "x": 420,
+              "y": 460,
+              "width": 0,
+              "height": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lawfirmB",
+      "type": "group",
+      "visible": true,
+      "opacity": 1,
+      "offsetx": 0,
+      "offsety": 0,
+      "layers": [
+        {
+          "name": "chair",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "chair_1",
+              "x": -400,
+              "y": 500,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "chair_2",
+              "x": -360,
+              "y": 500,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "chair_3",
+              "x": -400,
+              "y": 540,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "chair_4",
+              "x": -360,
+              "y": 540,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "chair_5",
+              "x": -400,
+              "y": 580,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "chair_6",
+              "x": -360,
+              "y": 580,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sofa",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "sofa1",
+              "x": -480,
+              "y": 500,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            },
+            {
+              "name": "sofa2",
+              "x": -480,
+              "y": 540,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            },
+            {
+              "name": "sofa3",
+              "x": -480,
+              "y": 580,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "interaction",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "front_desk",
+              "x": -380,
+              "y": 460,
+              "width": 0,
+              "height": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "courtBasic",
+      "type": "group",
+      "visible": true,
+      "opacity": 1,
+      "offsetx": 0,
+      "offsety": 0,
+      "layers": [
+        {
+          "name": "chair",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "judge_seat",
+              "x": 40,
+              "y": 60,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            },
+            {
+              "name": "plaintiff_chair_1",
+              "x": 0,
+              "y": 100,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "plaintiff_lawyer_chair_1",
+              "x": 0,
+              "y": 140,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "defendant_chair_1",
+              "x": 80,
+              "y": 100,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "defendant_lawyer_chair_1",
+              "x": 80,
+              "y": 140,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "courtIntermediate",
+      "type": "group",
+      "visible": true,
+      "opacity": 1,
+      "offsetx": 0,
+      "offsety": 0,
+      "layers": [
+        {
+          "name": "chair",
+          "type": "objectgroup",
+          "visible": true,
+          "opacity": 1,
+          "objects": [
+            {
+              "name": "judge_seat",
+              "x": 40,
+              "y": -340,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "down"
+                }
+              ]
+            },
+            {
+              "name": "plaintiff_chair_1",
+              "x": 0,
+              "y": -300,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "plaintiff_lawyer_chair_1",
+              "x": 0,
+              "y": -260,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "right"
+                }
+              ]
+            },
+            {
+              "name": "defendant_chair_1",
+              "x": 80,
+              "y": -300,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            },
+            {
+              "name": "defendant_lawyer_chair_1",
+              "x": 80,
+              "y": -260,
+              "width": 0,
+              "height": 0,
+              "properties": [
+                {
+                  "name": "direction",
+                  "type": "string",
+                  "value": "left"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "name": "generated",
+      "type": "bool",
+      "value": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+profile:
+  lawyer_id: lawyer_04
+  name: 温以珩
+  seniority: Associate
+  specialty:
+  - 职务犯罪
+  - 少年司法
+  firm_id: firm_zhengyi
+  law_firm: 正意律师事务所
+case_state: 空闲
+current_handling_case: null
+case_queue: []
+long_term_memory:
+  case_summary: ''
+  legal_relationship: ''
+  dispute_focus: ''

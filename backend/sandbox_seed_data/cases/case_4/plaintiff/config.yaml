@@ -1,0 +1,10 @@
+case_id: '4'
+party_role: plaintiff
+dataset_path: case_data_extracted.json
+case_type: 妨害社会管理秩序罪
+case_category: criminal
+case_state: 空闲
+designated_lawyer_id: ''
+assigned_lawyer_id: ''
+profile: {}
+source_title: 吉林长春九台法院判决李某龙妨害公务案——强行闯卡造成辅警受伤构成妨害公务罪

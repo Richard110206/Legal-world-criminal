@@ -1,0 +1,27 @@
+firm_id: firm_zhengyi
+firm_name: 正意律师事务所
+lawyers:
+- id: lawyer_01
+  name: 沈度
+  seniority: Senior Partner
+  specialty:
+  - 刑事辩护
+  - 暴力犯罪
+- id: lawyer_02
+  name: 纪明澜
+  seniority: Partner
+  specialty:
+  - 经济犯罪
+  - 金融犯罪
+- id: lawyer_03
+  name: 裴见素
+  seniority: Associate
+  specialty:
+  - 财产犯罪
+  - 毒品犯罪
+- id: lawyer_04
+  name: 温以珩
+  seniority: Associate
+  specialty:
+  - 职务犯罪
+  - 少年司法

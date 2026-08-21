@@ -1,0 +1,10 @@
+case_id: '8'
+party_role: defendant
+dataset_path: case_data_extracted.json
+case_type: 侵犯财产罪
+case_category: criminal
+case_state: 空闲
+designated_lawyer_id: ''
+assigned_lawyer_id: ''
+profile: {}
+source_title: 廖某武等盗窃案——涉虚拟货币侵财犯罪的犯罪数额认定与处置

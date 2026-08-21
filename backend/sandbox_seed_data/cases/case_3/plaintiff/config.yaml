@@ -1,0 +1,10 @@
+case_id: '3'
+party_role: plaintiff
+dataset_path: case_data_extracted.json
+case_type: 危害公共安全罪
+case_category: criminal
+case_state: 空闲
+designated_lawyer_id: ''
+assigned_lawyer_id: ''
+profile: {}
+source_title: 指导性案例268号：严某聪以危险方法危害公共安全案

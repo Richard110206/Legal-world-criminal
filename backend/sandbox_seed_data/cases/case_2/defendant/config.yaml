@@ -1,0 +1,10 @@
+case_id: '2'
+party_role: defendant
+dataset_path: case_data_extracted.json
+case_type: 侵犯财产罪
+case_category: criminal
+case_state: 空闲
+designated_lawyer_id: ''
+assigned_lawyer_id: ''
+profile: {}
+source_title: 王某抢劫一案

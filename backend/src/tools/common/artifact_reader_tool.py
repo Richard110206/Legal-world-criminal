@@ -128,11 +128,16 @@ class ArtifactReader:
 
     def __post_init__(self) -> None:
         self.case_dir = Path(self.case_dir).resolve()
+        if not self.case_dir.is_dir():
+            self.case_dir.mkdir(parents=True, exist_ok=True)
         self._allowed_artifacts = self._discover_allowed_artifacts()
 
     def _discover_allowed_artifacts(self) -> dict[str, Path]:
         allowed: dict[str, Path] = {}
+        max_files = 500  # 防止大目录扫描失控
         for path in sorted(self.case_dir.rglob("*")):
+            if len(allowed) >= max_files:
+                break
             if not path.is_file():
                 continue
             if any(part.startswith(".") for part in path.relative_to(self.case_dir).parts):
@@ -225,4 +230,39 @@ class ArtifactReader:
             return f"Error: {exc}"
 
 
-__all__ = ["ArtifactReader"]
+ARTIFACT_READER_TOOL_NAME = "read_case_artifact"
+
+
+def create_artifact_reader_tool(agent: Any = None) -> FunctionTool:
+    """Create a FunctionTool for reading case artifacts (case output files).
+
+    The reader targets the current case output directory derived from the
+    agent's storage config, falling back to a neutral empty dir when unavailable
+    (avoid recursive scans over large roots at construction time).
+    """
+    case_dir: Path | None = None
+    storage = getattr(agent, "storage", None) if agent is not None else None
+    if storage is not None:
+        base_dir = getattr(storage, "base_dir", None)
+        if base_dir:
+            candidate = Path(base_dir) / "output"
+            if candidate.is_dir():
+                case_dir = candidate
+    if case_dir is None:
+        case_dir = _empty_scan_dir()
+    return ArtifactReader(case_dir=case_dir).get_tool()
+
+
+def _empty_scan_dir() -> Path:
+    """Return a small empty temp dir to avoid scanning huge project roots."""
+    import tempfile
+
+    path = Path(tempfile.mkdtemp(prefix="simlaw_artifact_empty_"))
+    return path
+
+
+__all__ = [
+    "ARTIFACT_READER_TOOL_NAME",
+    "ArtifactReader",
+    "create_artifact_reader_tool",
+]

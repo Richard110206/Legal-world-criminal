@@ -248,7 +248,7 @@ class LegalConsultationScenario(BaseScenario):
             frontend_mode=getattr(self.map_engine, "_frontend_mode", None),
             has_player_v2_client=supports_player_v2,
         )
-        return mode == "plaintiff"
+        return mode in {"plaintiff", "defendant"}
 
     async def execute(self) -> Dict[str, Any]:
         client = self.agents["client"]

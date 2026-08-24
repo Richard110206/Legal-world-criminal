@@ -23,8 +23,8 @@ SCENARIO_TO_JUDGMENT_DOCUMENT_TYPE = {
 }
 
 JUDGMENT_DOCUMENT_TYPE_TO_TOOL_NAME = {
-    CRIMINAL_FIRST_INSTANCE_JUDGMENT_DOCUMENT_TYPE: "draft_first_instance_criminal_judgment",
-    CRIMINAL_SECOND_INSTANCE_JUDGMENT_DOCUMENT_TYPE: "draft_second_instance_criminal_judgment",
+    CRIMINAL_FIRST_INSTANCE_JUDGMENT_DOCUMENT_TYPE: "draft_first_instance_criminal_judgment_document",
+    CRIMINAL_SECOND_INSTANCE_JUDGMENT_DOCUMENT_TYPE: "draft_second_instance_criminal_judgment_document",
 }
 
 JUDGMENT_DOCUMENT_TYPE_TO_RENDERER = {

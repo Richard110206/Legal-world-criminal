@@ -137,6 +137,7 @@ class RuntimeTechStrategy:
         message: str = "运行能力已调用",
         detail: str = "",
         result_summary: str = "",
+        retrieval_events: list[dict[str, Any]] | None = None,
     ) -> None:
         await self._broadcast(
             case_id=case_id,
@@ -146,6 +147,7 @@ class RuntimeTechStrategy:
             message=message,
             detail=detail or result_summary,
             status="completed",
+            retrieval_events=retrieval_events,
         )
 
     async def call_tool_or_demo(
@@ -221,6 +223,11 @@ class RuntimeTechStrategy:
             case_cause=case_cause,
             case_background=case_background,
         )
+        await self._emit_yuandian_law_research(
+            case_id=case_id,
+            stage_code=normalized_stage,
+            query=query,
+        )
         if _law_retrieval_enabled():
             await self.call_tool_or_demo(
                 case_id=case_id,
@@ -239,6 +246,61 @@ class RuntimeTechStrategy:
                 query=query,
                 top_k=3,
             )
+
+    async def _emit_yuandian_law_research(
+        self,
+        *,
+        case_id: str,
+        stage_code: str,
+        query: str,
+    ) -> None:
+        """元典法条语义检索（真实 MCP 调用），把命中条文结构化广播给前端。"""
+        try:
+            from .utils.yuandian_mcp_client import get_yuandian_client
+
+            client = get_yuandian_client()
+            items = client.search_law_semantic(str(query or "刑事"), return_num=3)
+        except Exception as exc:
+            logger.warning(
+                "Yuandian law research failed; skipping structured hits: stage=%s error=%s",
+                stage_code,
+                exc,
+            )
+            return
+
+        hits: list[dict[str, Any]] = []
+        for item in list(items or [])[:3]:
+            title = str(item.get("fgtitle") or item.get("title") or item.get("ftmc") or "").strip()
+            if not title:
+                continue
+            content = str(item.get("content") or "").strip()
+            hit: dict[str, Any] = {
+                "title": title[:60],
+                "content_preview": (f"内容：{content[:150]}") if content else "",
+            }
+            num = str(item.get("num") or item.get("ft_num") or "").strip()
+            if num:
+                hit["article"] = num[:30]
+            effect = str(item.get("effect1") or item.get("xljb_1") or "").strip()
+            if effect:
+                hit["effect"] = effect[:30]
+            hits.append(hit)
+
+        if not hits:
+            return
+        await self.emit_real_event(
+            case_id=case_id,
+            stage_code=stage_code,
+            tool_names=["search_yuandian_law"],
+            message="法条语义检索完成（元典 MCP）",
+            detail=f"检索词：{query[:80]}",
+            retrieval_events=[{
+                "tool": "search_yuandian_law",
+                "query": query[:120],
+                "hit_count": len(hits),
+                "hits": hits,
+            }],
+        )
 
     async def emit_document_complete(
         self,
@@ -291,6 +353,7 @@ class RuntimeTechStrategy:
         message: str,
         detail: str,
         status: str,
+        retrieval_events: list[dict[str, Any]] | None = None,
     ) -> None:
         if not tool_names and not skill_names:
             return
@@ -306,6 +369,8 @@ class RuntimeTechStrategy:
             "tech_event_status": str(status or "completed"),
             "tech_event_summary": str(detail or "").strip(),
         }
+        if retrieval_events:
+            metadata["retrieval_events"] = retrieval_events
         if self.trace_recorder is not None and hasattr(self.trace_recorder, "log_runtime_tool_event"):
             try:
                 self.trace_recorder.log_runtime_tool_event(

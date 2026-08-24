@@ -34,21 +34,19 @@ HTML_CONTAINER_PATTERNS = (
     ),
 )
 
-ARTICLE_SPLIT_PATTERN = re.compile(
-    r"(?=^第[一二三四五六七八九十百千万零〇两\d]+条)",
-    re.MULTILINE,
-)
+ARTICLE_REF = r"第[一二三四五六七八九十百千万零〇两\d]+条(?:之[一二三四五六七八九十百千零〇\d]+)?"
+ARTICLE_SPLIT_PATTERN = re.compile(rf"(?=^{ARTICLE_REF})", re.MULTILINE)
 ARTICLE_HEADER_PATTERN = re.compile(
-    r"^(第[一二三四五六七八九十百千万零〇两\d]+条)"
+    rf"^({ARTICLE_REF})"
     r"(?:\s*[【\[](.*?)[】\]])?"
     r"\s*(.*)$"
 )
 INLINE_ARTICLE_HEADER_PATTERN = re.compile(
-    r"([。！？；:：])\s+(第[一二三四五六七八九十百千万零〇两\d]+条)"
+    rf"([。！？；:：])\s+({ARTICLE_REF})"
 )
 PAGE_NUMBER_LINE_PATTERN = re.compile(r"^\d+$")
 STRUCTURE_HEADING_PATTERN = re.compile(
-    r"^第[一二三四五六七八九十百千万零〇两\d]+(?:编|章|节)\s+.+$"
+    r"^第[一二三四五六七八九十百千万零〇两\d]+(?:编|章|节)"
 )
 TAG_PATTERN = re.compile(r"<[^>]+>")
 WHITESPACE_PATTERN = re.compile(r"[ \t\r\f\v]+")

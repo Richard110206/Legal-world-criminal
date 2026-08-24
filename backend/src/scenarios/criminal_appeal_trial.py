@@ -4,7 +4,7 @@
 - 出庭方：审判长、公诉人、上诉人（原审被告人）、辩护人
 - 法庭调查围绕上诉理由对一审证据进行复核
 - 辩论围绕一审判决事实认定/法律适用/量刑是否不当
-- 宣判输出二审刑事判决书（draft_second_instance_criminal_judgment）
+- 宣判输出二审刑事判决书（draft_second_instance_criminal_judgment_document）
 """
 
 from __future__ import annotations
@@ -138,7 +138,7 @@ class CriminalAppealTrialScenario(CriminalTrialScenario):
 1. 二审全面审查，不受上诉理由范围限制；围绕事实是否清楚、证据是否确实充分、法律适用是否正确、量刑是否适当展开。
 2. "本院认为"部分须对上诉理由逐项回应，说明采纳与否。
 3. 判决结果必须明确：驳回上诉维持原判，或改判，或发回重审。
-4. 最终回复必须直接给出完整《刑事判决书》（二审）正文，然后立即调用 `draft_second_instance_criminal_judgment` 工具，把同一份正文作为 `document_text` 传入导出。不得输出摘要、PDF路径说明或任何过程性提示。
+4. 最终回复必须直接给出完整《刑事判决书》（二审）正文，然后立即调用 `draft_second_instance_criminal_judgment_document` 工具，把同一份正文作为 `document_text` 传入导出。不得输出摘要、PDF路径说明或任何过程性提示。
 """
         res = self._execute_step("撰写二审判决书", instr, responder_role=None)
         self._capture_judgment_tool_result(judge_agent)

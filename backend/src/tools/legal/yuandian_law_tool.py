@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 YUANDIAN_LAW_TOOL_NAME = "search_yuandian_law"
 YUANDIAN_CASE_TOOL_NAME = "search_yuandian_case"
+YUANDIAN_LAW_DETAIL_TOOL_NAME = "search_yuandian_law_detail"
 
 
 def _get_client() -> YuandianMCPClient:
@@ -119,6 +120,57 @@ def search_yuandian_law(
         return f"法条检索异常：{exc}"
 
 
+def search_yuandian_law_detail(
+    ft_num: str = "",
+    law_name: str = "",
+    refer_date: str = "",
+) -> str:
+    """精确查询单条法条的完整原文（溯源核验用）。
+
+    Args:
+        ft_num: 条号，如"第二百六十四条"。
+        law_name: 法规名称，如"中华人民共和国刑法"。
+        refer_date: 参考日期（yyyy-MM-dd），按该日期定位有效版本，默认当前有效版。
+
+    Returns:
+        完整条文：条号 + 法规名 + 全文内容 + 时效性 + 效力层级。
+    """
+    try:
+        if not ft_num and not law_name:
+            return "请至少提供 ft_num（条号）或 law_name（法规名称）。"
+        client = _get_client()
+        detail = client.search_law_detail(
+            law_name=law_name,
+            ft_num=ft_num,
+            refer_date=refer_date,
+        )
+        if not isinstance(detail, dict) or not detail:
+            return "未查询到该法条详情。"
+        title = str(detail.get("title") or detail.get("ftmc") or "").strip()
+        num = str(detail.get("ft_num") or "").strip()
+        content = str(detail.get("content") or "").strip()
+        status = str(detail.get("sxx") or "").strip()
+        effect = str(detail.get("xljb_1") or detail.get("effect1") or "").strip()
+        lines = []
+        if title:
+            lines.append(f"法条：{title}")
+        if num:
+            lines.append(f"条号：{num}")
+        if effect:
+            lines.append(f"效力：{effect}")
+        if status:
+            lines.append(f"时效：{status}")
+        if content:
+            lines.append(f"全文：{content}")
+        return "\n".join(lines) if lines else "未查询到该法条详情。"
+    except YuandianMCPError as exc:
+        logger.warning("[YuandianTool] law detail failed: %s", exc)
+        return f"法条详情查询失败：{exc}"
+    except Exception as exc:
+        logger.exception("[YuandianTool] law detail unexpected error")
+        return f"法条详情查询异常：{exc}"
+
+
 def search_yuandian_case(
     keyword: str = "",
     query: str = "",
@@ -197,6 +249,40 @@ def _build_law_schema() -> dict[str, Any]:
     }
 
 
+def _build_law_detail_schema() -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": YUANDIAN_LAW_DETAIL_TOOL_NAME,
+            "description": (
+                "精确查询单条法条的完整原文（溯源核验用）。用于核对学生引用的法条是否正确："
+                "输入条号（如'第二百六十四条'）和法规名（如'中华人民共和国刑法'），"
+                "返回该条完整原文、条号、法规名、时效性与效力层级。"
+            ),
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ft_num": {
+                        "type": "string",
+                        "description": "条号，如'第二百六十四条'。",
+                    },
+                    "law_name": {
+                        "type": "string",
+                        "description": "法规名称，如'中华人民共和国刑法'。",
+                    },
+                    "refer_date": {
+                        "type": "string",
+                        "description": "参考日期（yyyy-MM-dd），按该日期定位有效版本，默认当前有效版。",
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 def _build_case_schema() -> dict[str, Any]:
     return {
         "type": "function",
@@ -243,11 +329,20 @@ def create_yuandian_case_tool(agent: Any = None) -> FunctionTool:
     return FunctionTool(search_yuandian_case, openai_tool_schema=_build_case_schema())
 
 
+def create_yuandian_law_detail_tool(agent: Any = None) -> FunctionTool:
+    """Create FunctionTool for exact law-article detail lookup (溯源核验)."""
+    del agent
+    return FunctionTool(search_yuandian_law_detail, openai_tool_schema=_build_law_detail_schema())
+
+
 __all__ = [
     "YUANDIAN_CASE_TOOL_NAME",
+    "YUANDIAN_LAW_DETAIL_TOOL_NAME",
     "YUANDIAN_LAW_TOOL_NAME",
     "create_yuandian_case_tool",
+    "create_yuandian_law_detail_tool",
     "create_yuandian_law_tool",
     "search_yuandian_case",
     "search_yuandian_law",
+    "search_yuandian_law_detail",
 ]

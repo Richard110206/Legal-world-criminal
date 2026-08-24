@@ -80,17 +80,32 @@ class DataLoader:
 
     def _extract_party_names(self, case: Dict[str, Any], party_role: str) -> List[str]:
         party_info = case.get("extracted_info", {}).get("party_info", {})
-        party_raw = party_info.get("plaintiff" if party_role == "plaintiff" else "defendant", {})
+        # 刑事公诉案无原告：plaintiff 角色位实为被羁押人家属（"XX家属委托人"），
+        # 数据集 party_info 只有 defendant/prosecutor —— 匹配 plaintiff 时兜底查
+        # defendant 名册（名字包含被告人名即认定为同案家属）。
+        role_keys = ["plaintiff"] if party_role == "plaintiff" else ["defendant"]
 
+        names: List[str] = []
+        for key in role_keys:
+            party_raw = party_info.get(key, {})
+            names.extend(self._names_from_party(party_raw))
+
+        if not names and party_role == "plaintiff":
+            names.extend(self._names_from_party(party_info.get("defendant", {})))
+
+        return [n for n in names if n]
+
+    @classmethod
+    def _names_from_party(cls, party_raw: Any) -> List[str]:
         if isinstance(party_raw, list):
             return [
-                self._normalize_name(item.get("name", ""))
+                cls._normalize_name(item.get("name", ""))
                 for item in party_raw
-                if isinstance(item, dict) and self._normalize_name(item.get("name", ""))
+                if isinstance(item, dict) and cls._normalize_name(item.get("name", ""))
             ]
 
         if isinstance(party_raw, dict):
-            name = self._normalize_name(party_raw.get("name", ""))
+            name = cls._normalize_name(party_raw.get("name", ""))
             return [name] if name else []
 
         return []

@@ -159,8 +159,8 @@ def test_registry() -> bool:
             "draft_indictment_document",
             "draft_defense_opinion_document",
             "draft_public_prosecution_document",
-            "draft_first_instance_criminal_judgment",
-            "draft_second_instance_criminal_judgment",
+            "draft_first_instance_criminal_judgment_document",
+            "draft_second_instance_criminal_judgment_document",
         }
         missing_registry = criminal_tools - registered
         if missing_registry:
@@ -404,6 +404,54 @@ def test_player_lawyer() -> bool:
 
 
 # ────────────────────────────────────────────────────────────
+# Test 9: 教学评分模块（teaching）
+# ────────────────────────────────────────────────────────────
+def test_teaching() -> bool:
+    _h1("Test 9: 教学评分模块 (teaching)")
+    ok = True
+    try:
+        from src.teaching import (
+            CAPABILITIES,
+            STAGE_CAPABILITY_MATRIX,
+            check_submission_citations,
+            corpus_available,
+            validate_rubrics,
+        )
+        validate_rubrics()
+        _ok(f"8 能力定义 + 6 阶段矩阵校验通过 ({len(CAPABILITIES)}/{len(STAGE_CAPABILITY_MATRIX)})")
+    except Exception as exc:
+        _fail(f"教学 rubrics 校验失败: {exc}")
+        ok = False
+
+    try:
+        from src.teaching.law_corpus import corpus_stats
+        stats = corpus_stats()
+        if stats.get("available"):
+            _ok(f"本地法条库可用: {stats.get('total_articles')} 条 "
+                f"({stats.get('by_title', {}).get('中华人民共和国刑法', 0)} 刑法 / "
+                f"{stats.get('by_title', {}).get('中华人民共和国刑事诉讼法', 0)} 刑诉法)")
+        else:
+            _fail(f"本地法条库不可用: {stats.get('corpus_dir')}")
+            ok = False
+    except Exception as exc:
+        _fail(f"教学法条库加载失败: {exc}")
+        ok = False
+
+    try:
+        feedback = check_submission_citations("依据《刑法》第二百六十四条构成盗窃罪，同时参照《刑法》第二千六十四条。")
+        if feedback and feedback.get("status") == "warn":
+            _ok("即时法条校验: 错误条号被捕获")
+        else:
+            _fail("即时法条校验未捕获错误条号")
+            ok = False
+    except Exception as exc:
+        _fail(f"即时法条校验失败: {exc}")
+        ok = False
+
+    return ok
+
+
+# ────────────────────────────────────────────────────────────
 # Main
 # ────────────────────────────────────────────────────────────
 def main() -> None:
@@ -420,6 +468,7 @@ def main() -> None:
     all_ok &= test_event_bus()
     all_ok &= test_case_fsm()
     all_ok &= test_player_lawyer()
+    all_ok &= test_teaching()
 
     _h1("结果")
     if all_ok:

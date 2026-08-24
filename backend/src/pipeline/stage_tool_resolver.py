@@ -456,7 +456,10 @@ def apply_stage_tool_permissions(
     stage_code: str,
     role_to_agent: Mapping[str, Any],
 ) -> dict[str, list[str]]:
-    """Apply manifest-declared stage tools to already-participating agents."""
+    """Apply manifest-declared stage tools to already-participating agents.
+
+    阶段进入时调用：注入本阶段的阶段专属工具（role_tools），保留常驻默认工具。
+    """
     normalized_stage_code = str(stage_code or "").strip().upper()
     if normalized_stage_code not in REAL_STAGE_CODES:
         raise ValueError(f"Unknown stage code: {stage_code}")
@@ -504,6 +507,74 @@ def apply_stage_tool_permissions(
     return resolved
 
 
+def clear_stage_tool_permissions(
+    stage_code: str,
+    role_to_agent: Mapping[str, Any],
+) -> dict[str, list[str]]:
+    """Remove stage-exclusive tools after the scenario exits (防工具泄漏).
+
+    阶段退出时调用：仅移除本阶段 role_tools 注入的"阶段专属工具"，
+    保留 agent_type_defaults 常驻工具（记忆/检索），避免跨阶段累积。
+    """
+    normalized_stage_code = str(stage_code or "").strip().upper()
+    if normalized_stage_code not in REAL_STAGE_CODES:
+        raise ValueError(f"Unknown stage code: {stage_code}")
+
+    # 本阶段专属工具 = 各角色 role_tools 并集（不含常驻 defaults / shared）
+    stage_config = _get_stage_config(normalized_stage_code)[1]
+    stage_exclusive_ids = _merge_string_lists(
+        *(list(tool_ids) for tool_ids in stage_config.get("role_tools", {}).values())
+    )
+
+    resolved: dict[str, list[str]] = {}
+    for role_name, agent in dict(role_to_agent or {}).items():
+        if agent is None or not stage_exclusive_ids:
+            continue
+        try:
+            normalized_role_name = validate_stage_role_name(normalized_stage_code, role_name)
+        except ValueError:
+            continue
+
+        # 该 Agent 的常驻默认工具绝不能被阶段清理移除（防 manifest 将来把默认工具
+        # 误写进 role_tools 时误删常驻能力）。
+        persistent_defaults: set[str] = set()
+        try:
+            persistent_defaults = set(
+                get_agent_type_default_tool_ids(resolve_agent_type(agent))
+            )
+        except Exception as exc:
+            logger.warning(
+                "[ToolResolver] failed to resolve persistent defaults for %s: %s",
+                getattr(agent, "agent_id", ""),
+                exc,
+            )
+        existing_tool_names = _extract_tool_names(agent)
+        to_remove = [
+            name
+            for name in existing_tool_names
+            if name in stage_exclusive_ids and name not in persistent_defaults
+        ]
+        if to_remove and hasattr(agent, "remove_runtime_tools"):
+            try:
+                agent.remove_runtime_tools(to_remove)
+            except Exception as exc:
+                logger.warning(
+                    "[ToolResolver] failed to clear stage tools for %s (%s): %s",
+                    getattr(agent, "agent_id", ""),
+                    normalized_stage_code,
+                    exc,
+                )
+
+        resolved[normalized_role_name] = _update_agent_stage_tool_context(
+            agent,
+            stage_code=normalized_stage_code,
+            role_name=normalized_role_name,
+            configured_tool_names=_extract_tool_names(agent),
+        )
+
+    return resolved
+
+
 def describe_stage_tool_matrix() -> dict[str, dict[str, list[str]]]:
     """Return stage -> role -> configured tool names for inspection/tests."""
     manifest = load_stage_tool_manifest()
@@ -537,6 +608,7 @@ __all__ = [
     "apply_stage_tool_permissions",
     "build_agent_default_tools",
     "clear_stage_tool_manifest_cache",
+    "clear_stage_tool_permissions",
     "describe_stage_tool_matrix",
     "get_agent_type_default_tool_ids",
     "get_stage_declared_role_names",

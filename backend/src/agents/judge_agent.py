@@ -132,8 +132,10 @@ class JudgeAgent(BaseAgent):
             return
         from ..core.event_bus import EventType
         self.event_bus.subscribe(EventType.INDICTMENT_FILED, self._on_indictment_filed)
-        self.event_bus.subscribe(EventType.DEFENSE_OPINION_FILED, self._on_defense_opinion_filed)
-        self.event_bus.subscribe(EventType.CRIMINAL_APPEAL_FILED, self._on_criminal_appeal_filed)
+        self.event_bus.subscribe(
+            EventType.DEFENSE_OPINION_DRAFTING_COMPLETED, self._on_defense_opinion_filed
+        )
+        self.event_bus.subscribe(EventType.ENTER_CRIMINAL_APPEAL_TRIAL, self._on_criminal_appeal_filed)
 
     async def _on_indictment_filed(self, payload: dict) -> None:
         court_level = payload.get("court_level", "basic")

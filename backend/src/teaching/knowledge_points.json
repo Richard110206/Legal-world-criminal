@@ -1,0 +1,406 @@
+{
+  "schema_version": "knowledge-points-v1",
+  "knowledge_points": [
+    {
+      "name": "共同犯罪",
+      "frequency": 6
+    },
+    {
+      "name": "犯罪主体",
+      "frequency": 4
+    },
+    {
+      "name": "犯罪形态",
+      "frequency": 4
+    },
+    {
+      "name": "犯罪的主观方面",
+      "frequency": 4
+    },
+    {
+      "name": "假释",
+      "frequency": 4
+    },
+    {
+      "name": "罪刑法定原则",
+      "frequency": 3
+    },
+    {
+      "name": "不作为犯罪",
+      "frequency": 3
+    },
+    {
+      "name": "妨害社会管理秩序罪",
+      "frequency": 3
+    },
+    {
+      "name": "紧急避险",
+      "frequency": 3
+    },
+    {
+      "name": "正当防卫",
+      "frequency": 3
+    },
+    {
+      "name": "犯罪未遂",
+      "frequency": 3
+    },
+    {
+      "name": "单位犯罪",
+      "frequency": 3
+    },
+    {
+      "name": "想象竞合犯",
+      "frequency": 3
+    },
+    {
+      "name": "罪数",
+      "frequency": 3
+    },
+    {
+      "name": "自首",
+      "frequency": 3
+    },
+    {
+      "name": "减刑",
+      "frequency": 3
+    },
+    {
+      "name": "追诉时效",
+      "frequency": 3
+    },
+    {
+      "name": "危害公共安全罪",
+      "frequency": 3
+    },
+    {
+      "name": "盗窃罪",
+      "frequency": 3
+    },
+    {
+      "name": "信用卡诈骗罪",
+      "frequency": 3
+    },
+    {
+      "name": "侵占罪",
+      "frequency": 3
+    },
+    {
+      "name": "受贿罪",
+      "frequency": 3
+    },
+    {
+      "name": "刑法的效力",
+      "frequency": 2
+    },
+    {
+      "name": "侵犯财产罪",
+      "frequency": 2
+    },
+    {
+      "name": "犯罪构成",
+      "frequency": 2
+    },
+    {
+      "name": "因果关系",
+      "frequency": 2
+    },
+    {
+      "name": "被害人承诺",
+      "frequency": 2
+    },
+    {
+      "name": "犯罪中止",
+      "frequency": 2
+    },
+    {
+      "name": "刑事责任",
+      "frequency": 2
+    },
+    {
+      "name": "间接正犯",
+      "frequency": 2
+    },
+    {
+      "name": "法条竞合",
+      "frequency": 2
+    },
+    {
+      "name": "累犯",
+      "frequency": 2
+    },
+    {
+      "name": "危害国家安全罪",
+      "frequency": 2
+    },
+    {
+      "name": "行贿罪",
+      "frequency": 2
+    },
+    {
+      "name": "包庇罪",
+      "frequency": 2
+    },
+    {
+      "name": "渎职罪",
+      "frequency": 2
+    },
+    {
+      "name": "玩忽职守罪",
+      "frequency": 2
+    },
+    {
+      "name": "刑法的基本原则",
+      "frequency": 1
+    },
+    {
+      "name": "刑法的时间效力",
+      "frequency": 1
+    },
+    {
+      "name": "司法解释的时间效力",
+      "frequency": 1
+    },
+    {
+      "name": "刑法的空间效力",
+      "frequency": 1
+    },
+    {
+      "name": "司法解释的适用",
+      "frequency": 1
+    },
+    {
+      "name": "刑事责任能力",
+      "frequency": 1
+    },
+    {
+      "name": "犯罪的客观方面",
+      "frequency": 1
+    },
+    {
+      "name": "犯罪故意",
+      "frequency": 1
+    },
+    {
+      "name": "犯罪的形态",
+      "frequency": 1
+    },
+    {
+      "name": "法律拟制",
+      "frequency": 1
+    },
+    {
+      "name": "合同诈骗罪",
+      "frequency": 1
+    },
+    {
+      "name": "犯罪既遂",
+      "frequency": 1
+    },
+    {
+      "name": "教唆犯",
+      "frequency": 1
+    },
+    {
+      "name": "牵连犯",
+      "frequency": 1
+    },
+    {
+      "name": "直接正犯",
+      "frequency": 1
+    },
+    {
+      "name": "数罪并罚",
+      "frequency": 1
+    },
+    {
+      "name": "刑罚的目的",
+      "frequency": 1
+    },
+    {
+      "name": "刑罚的适用",
+      "frequency": 1
+    },
+    {
+      "name": "死刑适用",
+      "frequency": 1
+    },
+    {
+      "name": "死刑的适用",
+      "frequency": 1
+    },
+    {
+      "name": "刑法的适用，职业禁止",
+      "frequency": 1
+    },
+    {
+      "name": "没收财产",
+      "frequency": 1
+    },
+    {
+      "name": "死刑",
+      "frequency": 1
+    },
+    {
+      "name": "立功",
+      "frequency": 1
+    },
+    {
+      "name": "假释的撤销",
+      "frequency": 1
+    },
+    {
+      "name": "抽象危险犯",
+      "frequency": 1
+    },
+    {
+      "name": "危险驾驶罪",
+      "frequency": 1
+    },
+    {
+      "name": "以危险方法危害公共安全罪",
+      "frequency": 1
+    },
+    {
+      "name": "想象竞合",
+      "frequency": 1
+    },
+    {
+      "name": "破坏交通设施罪",
+      "frequency": 1
+    },
+    {
+      "name": "洗钱罪",
+      "frequency": 1
+    },
+    {
+      "name": "黑社会性质的组织犯罪",
+      "frequency": 1
+    },
+    {
+      "name": "破坏社会主义市场经济秩序罪",
+      "frequency": 1
+    },
+    {
+      "name": "货币犯罪",
+      "frequency": 1
+    },
+    {
+      "name": "故意伤害罪",
+      "frequency": 1
+    },
+    {
+      "name": "拐卖妇女罪",
+      "frequency": 1
+    },
+    {
+      "name": "侮辱罪",
+      "frequency": 1
+    },
+    {
+      "name": "诽谤罪",
+      "frequency": 1
+    },
+    {
+      "name": "抢劫罪",
+      "frequency": 1
+    },
+    {
+      "name": "过失致人死亡罪",
+      "frequency": 1
+    },
+    {
+      "name": "绑架罪",
+      "frequency": 1
+    },
+    {
+      "name": "使用假币罪",
+      "frequency": 1
+    },
+    {
+      "name": "虚假广告罪",
+      "frequency": 1
+    },
+    {
+      "name": "抢夺罪",
+      "frequency": 1
+    },
+    {
+      "name": "诈骗罪",
+      "frequency": 1
+    },
+    {
+      "name": "窝藏",
+      "frequency": 1
+    },
+    {
+      "name": "挪用公款罪",
+      "frequency": 1
+    },
+    {
+      "name": "贪污贿赂罪",
+      "frequency": 1
+    },
+    {
+      "name": "徇私枉法罪",
+      "frequency": 1
+    }
+  ],
+  "charges": [
+    {
+      "name": "破坏社会主义市场经济秩序2罪",
+      "case_count": 34
+    },
+    {
+      "name": "妨害社会管理秩序罪",
+      "case_count": 25
+    },
+    {
+      "name": "侵犯公民人身权利、民主权利罪",
+      "case_count": 23
+    },
+    {
+      "name": "危害公共安全罪",
+      "case_count": 21
+    },
+    {
+      "name": "侵犯财产罪",
+      "case_count": 17
+    },
+    {
+      "name": "贪污贿赂罪",
+      "case_count": 4
+    }
+  ],
+  "case_causes": [
+    {
+      "name": "破坏社会主义市场经济秩序2罪",
+      "case_count": 34
+    },
+    {
+      "name": "妨害社会管理秩序罪",
+      "case_count": 25
+    },
+    {
+      "name": "侵犯公民人身权利、民主权利罪",
+      "case_count": 23
+    },
+    {
+      "name": "危害公共安全罪",
+      "case_count": 21
+    },
+    {
+      "name": "侵犯财产罪",
+      "case_count": 17
+    },
+    {
+      "name": "贪污贿赂罪",
+      "case_count": 4
+    }
+  ],
+  "stats": {
+    "knowledge_points": 86,
+    "charges": 6,
+    "case_causes": 6
+  }
+}

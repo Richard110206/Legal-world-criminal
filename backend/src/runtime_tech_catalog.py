@@ -58,14 +58,14 @@ CORE_TOOLS: tuple[dict[str, str], ...] = (
         "runtime_status": "core",
     },
     {
-        "id": "draft_first_instance_criminal_judgment",
+        "id": "draft_first_instance_criminal_judgment_document",
         "display_name": "生成刑事一审判决书",
         "category": "运行工具",
         "description": "接收完整刑事一审判决书正文并导出 PDF。",
         "runtime_status": "core",
     },
     {
-        "id": "draft_second_instance_criminal_judgment",
+        "id": "draft_second_instance_criminal_judgment_document",
         "display_name": "生成刑事二审判决书",
         "category": "运行工具",
         "description": "接收完整刑事二审判决书正文并导出 PDF。",

@@ -421,7 +421,7 @@ class CriminalTrialScenario(BaseScenario):
 1. 事实认定基于庭审举证质证，并重点参考【参考资料-审理查明】。
 2. "本院认为"部分须评价已查明的量刑情节（自首/坦白/认罪认罚/赔偿谅解/累犯等），参考【参考资料-法院意见】但用自己的语言。
 3. 判决结果（刑期、罚金、缓刑）必须明确具体。
-4. 最终回复必须直接给出完整《刑事判决书》正文，然后立即调用 `draft_first_instance_criminal_judgment` 工具，把同一份正文作为 `document_text` 传入导出。不得输出摘要、PDF路径说明或任何过程性提示。
+4. 最终回复必须直接给出完整《刑事判决书》正文，然后立即调用 `draft_first_instance_criminal_judgment_document` 工具，把同一份正文作为 `document_text` 传入导出。不得输出摘要、PDF路径说明或任何过程性提示。
 """
         res = self._execute_step("撰写判决书", instr, responder_role=None)
         self._capture_judgment_tool_result(judge_agent)

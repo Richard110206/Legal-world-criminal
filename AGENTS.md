@@ -87,58 +87,87 @@
    - 委托洽谈(LC)：律师先听当事人分步陈述，不一次性注入完整案情/证据
 6. **对话多行展示**：前端 DialogueFeed 改为完整对话历史滚动列表
 7. **当事人显示中文名**：前端 agentDisplayName 优先后端下发中文名，不用精灵名（Molly 等）
+8. **阶段工具权限（纯刑事）**：`stage_tool_manifest.yaml` 声明每阶段每角色工具（agent_type_defaults 常驻 + role_tools 阶段专属），`stage_tool_resolver.py` apply/clear 注入与清理，6 个阶段（LC/INV/PR/DS/CR/CRA）编排器均已接入；修复判决书工具名对齐（`draft_*_criminal_judgment_document`）
+9. **教学评分模块（teaching/）**：rubrics（CJ-Bench 8 能力 + 阶段矩阵）+ transcript + scorer（LLM-as-judge → LearningEvent）+ 本地法条库 RAG + learner 画像 + report + routes + 阶段结束自动触发评分 + 即时法条校验（详见第五节）
 
 ---
 
-## 五、教育教学整合方向（精学模块——当前主攻）
+## 五、教育教学整合方向（精学模块——已实现 ✅）
 
 ### 核心教学模型
 学生作为辩护律师进入真实刑事案件 → AI 陪练（检察官/法官/当事人）质询 → 阶段结束后 LLM 裁判评分 → 找漏洞 + 法条溯源 → 画像/推荐。
 
-### 已确认的评分决策（用户拍板）
+### 已确认的评分决策（用户拍板 + 已实现）
 1. **评分对象**：只评学生扮演的辩护律师发言
-2. **评分时机**：整个阶段结束之后统一评分
-3. **法条溯源**：需要向量索引数据库 + DFF API（法条检索）
+2. **评分时机**：整个阶段结束之后统一评分（异步线程，不阻塞流程）
+3. **法条溯源**：本地法条库 RAG（零外部依赖），DFF/向量库留作增强
+4. **评分框架**：采用 **CJ-Bench 8 能力刑法化**（非旧 5 维度草案）
 
-### 评分 5 维度（草案，待最终确认）
-| 维度 | 考察点 |
-|------|--------|
-| fact_identification 事实识别 | 是否抓住定罪/量刑关键事实 |
-| rule_retrieval 规则检索 | 罪名构成要件、法条引用是否准确 |
-| subsumption 要件涵摄 | 事实↔构成要件对应是否正确 |
-| counter_argument 对抗论证 | 能否回应质询、抓住漏洞 |
-| procedural 程序合规 | 刑事程序（会见/取保/质证/最后陈述） |
+### 评分框架（8 能力，唯一权威在 `teaching/rubrics.py`）
+| 能力码 | 中文名 | 主考阶段 |
+|--------|--------|---------|
+| fact_identification | 事实识别 | LC/INV |
+| rule_retrieval | 规范检索 | PR/DS |
+| subsumption | **要件涵摄★** | PR/DS/CR/CRA（三栏表专项） |
+| claim_construction | 辩护主张构建 | PR/DS/CRA |
+| evidence_marshalling | 证据组织 | DS/CR |
+| evidentiary_advocacy | 质证对抗 | CR/CRA |
+| position_consistency | 立场一致性 | DS/CR/CRA |
+| procedural_compliance | 程序合规 | LC/INV/PR/CR |
+
+阶段 × 能力矩阵见 `teaching/rubrics.py::STAGE_CAPABILITY_MATRIX`（primary 权重 1.0 / secondary 0.5）。
+
+### 教学模块文件（均已实现）
+```
+teaching/
+├── __init__.py            # 导出 TeachingScorer 等
+├── rubrics.py             # 8 能力 + 6 阶段矩阵 + judge 提示词 + 涵摄专项
+├── law_corpus.py          # 本地法条检索/核验（search_law/verify_citation/resolve_article）
+├── citation_check.py      # 即时法条校验（错误条号 + 相近法条建议）
+├── transcript.py          # 学生发言 + 金标准组装
+├── scorer.py              # LLM-as-judge → LearningEvent
+├── learner.py             # 跨案件画像（sandbox_data/teaching/profiles/）
+├── report.py              # 雷达图/成长曲线/知识缺口/按缺口推荐 quiz 题
+├── routes.py              # /api/teaching/* 路由
+└── knowledge_points.json  # 冷启动知识点（quiz_bank 86 个去重）
+```
+
+### API（已挂载 ws_server）
+| 方法/路径 | 用途 |
+|----------|------|
+| POST `/api/teaching/score` | 手动触发评分（body: case_id, stage, student_id?） |
+| GET `/api/teaching/event/{case_id}/{stage}` | 取单次 LearningEvent |
+| GET `/api/teaching/profile/{student_id}` | 学习者画像 |
+| GET `/api/teaching/report/{student_id}` | 报告 + 推荐 |
+| GET `/api/teaching/corpus` | 法条库状态 |
+
+### 触发链路
+1. **即时校验**：`player_lawyer/routes.py::submit_response` 返回 `citation_feedback`（`SIMLAW_TEACHING_INSTANT_CITATION` 默认开，法条库缺失自动静默）
+2. **阶段自动评分**：`scenario_orchestrator.py::_maybe_trigger_teaching_scoring` 在 LC/INV/PR/DS/CR/CRA 结束后异步触发（仅玩家模式 + 非 AI 代理）
+3. 评分输入 = ledger `submissions` + `{stage}_result.json` dialog_history + 数据集金标准
+4. 输出 → `case_output_dir/teaching/{stage}_learning_event.json` → 画像累计
 
 ### LearningEvent 输出结构（对齐星火智学）
 ```json
 {
-  "student_id": "anonymous_023",
-  "case_id": "case_1",
-  "stage": "CR",
-  "ability_scores": {"fact_identification": 0.72, "rule_retrieval": 0.88, ...},
-  "error_tags": ["法条引用错误-264与266混淆", "遗漏正当防卫时间条件"],
-  "law_citations": [{"引用": "刑法第264条", "核验": "valid", "issue": ""}],
+  "event_id": "evt_20260821_..._case_1_DS",
+  "schema_version": "learning-event-v1",
+  "student_id": "anonymous", "case_id": "case_1", "stage": "DS",
+  "capability_scores": {"subsumption": {"score": 0.7, "raw": 7, "weight": 1.0, "rationale": "", "evidence_quote": ""}},
+  "subsumption_table": [{"element": "非法占有目的", "fact_found": "", "conclusion": "符合|不符合|存疑", "comment": ""}],
+  "knowledge_verdicts": [{"kp": "盗窃罪构成要件", "status": "mastered|partial|missing", "reason": ""}],
+  "error_tags": ["法条引用错误-264与266混淆"],
+  "law_citations": [{"citation": "《刑法》第二百六十四条", "status": "valid|invalid_article|invalid_title", "content": "…", "issue": ""}],
   "knowledge_gaps": ["盗窃罪构成要件"],
-  "feedback": "你在XX环节漏掉了..."
+  "overall_feedback": "面向学生的第二人称反馈",
+  "scored_at": "2026-08-21T17:22:29"
 }
 ```
 
 ### 评分数据来源
-- 学生发言：`run_ledger.py`（PlayerInputGateway 落盘）
-- AI 陪练对话：各阶段 `*_result.json` 的 dialog_history
-- 金标准：数据集 `guiding_points`（裁判要点）、`defense_hint`（辩护提示）、各 stage 字段
-
-### 待开发 teaching 模块（规划）
-```
-teaching/
-├── rubrics.py          # 评分维度定义
-├── scorer.py           # LLM裁判：找漏洞+溯源+打分（复用 eval_pipeline 的 LLM-as-judge 框架）
-├── transcript.py       # 组装评分输入
-├── citation_check.py   # 法源核验（本地法条库 + Qdrant + DFF 可插拔）
-├── learner.py          # 学习者画像
-├── report.py           # 报告/雷达图/成长曲线
-└── routes.py           # API
-```
+- 学生发言：`{case_output_dir}/_player_lawyer/player_run_ledger.json`（submissions）
+- AI 陪练对话：各阶段 `{case_output_dir}/{stage}_result.json` 的 dialog_history
+- 金标准：`dataset/criminal_case_dataset.json`（guiding_points 仅 55/124，defense_hint 37/124，P7 未回填）
 
 ---
 
@@ -154,12 +183,14 @@ teaching/
 ### 向量数据库选型
 - **推荐 Qdrant**（轻量、Docker 单容器、支持过滤+标量检索、比赛演示稳定）
 - 备选：ChromaDB（零部署嵌入式）、pgvector（需 SQLite→PG 迁移，成本高）
-- 现状：本地 `legal_corpus` 目录**不存在**，法条语料需准备（刑法全文/刑诉法/司法解释）
+- **现状（2026-08）**：`backend/legal_corpus/processed/*.jsonl` **已就绪**——由 `scripts/build_law_corpus_from_pdfs.py` 从《刑法》《刑诉法》PDF（PyMuPDF 直读，无需转 TXT）构建：刑法 504 条 + 刑诉法 308 条，schema 与 `citation_check_tool` 对齐。教学模块用**本地词法 RAG**（`teaching/law_corpus.py`，n-gram 余弦 + 关键词融合，纯 stdlib，参考 legal-rag-poc），零外部依赖、无需 embedding API，离线可用。Qdrant 语义检索留作后续增强。
 
 ### 现有法条检索基础设施
-- `law_retrieval_tool.py`：文件向量检索（DashScope embedding + 本地 .npy，`SIMLAW_ENABLE_LAW_RETRIEVAL=false` 默认关闭）
-- `citation_check_tool.py`：本地法条引用校验（读取 `legal_corpus/processed/*.jsonl`）
-- `case_retrieval_tool.py`：类案检索
+- `law_retrieval_tool.py`：文件向量检索（DashScope embedding + 本地 .npy，`SIMLAW_ENABLE_LAW_RETRIEVAL=false` 默认关闭，索引缺失）
+- `citation_check_tool.py`：本地法条引用校验（读取 `legal_corpus/processed/*.jsonl`，**现已可用**）
+- `case_retrieval_tool.py`：类案检索（语料缺失）
+- `teaching/law_corpus.py`：教学法条检索 + 引用核验（`search_law`/`verify_citation`/`resolve_article`）
+- **元典 MCP**（`utils/yuandian_mcp_client.py` + `tools/legal/yuandian_law_tool.py`）：`.env` 已配 `YUANDIAN_API_KEY`，但依赖外网 `open.chineselaw.com`，演示环境不可靠；工具已注册常驻，调用失败返回错误文本不阻断
 
 ### RAG / 微调定位（对齐星火智学说明书）
 - **RAG**：增强现有 `search_laws` 工具（精确匹配条号 + Qdrant 语义兜底 + DFF 权威核验），不改变案例流程
@@ -191,12 +222,12 @@ teaching/
 ### 核心数据对象
 KnowledgeCard / CaseBundle / TaskItem / EvidencePack / LearningEvent / LearnerProfile / Recommendation
 
-### 法条溯源设计（Dify/向量库分工）
+### 法条溯源设计（本地词法 RAG + DFF 可插拔）
 ```
 学生发言
-  ├─(A) 提取引用「刑法第264条」→ 精确匹配
-  ├─(B) Qdrant 语义检索 → 学生意思对但没写条号（查漏）
-  ├─(C) DFF API → 权威法条原文 + 时效核验
+  ├─(A) 提取引用「刑法第264条」→ 精确匹配（teaching/law_corpus.verify_citation）
+  ├─(B) 本地词法 RAG 语义兜底 → 学生意思对但条号写错（search_law 查漏/建议相近法条）
+  ├─(C) DFF API（可插拔，接口修通后启用）→ 权威法条原文 + 时效核验
   └─(D) LLM裁判整合 → 引用是否正确 → error_tags / knowledge_gaps
 ```
 
@@ -205,17 +236,20 @@ KnowledgeCard / CaseBundle / TaskItem / EvidencePack / LearningEvent / LearnerPr
 ## 八、未来改进方向（待办）
 
 ### P0（获奖核心）
-- [ ] `teaching/` 评分内核：rubrics + scorer + transcript（先打通 DS 辩护词 + CR 庭审）
+- [x] `teaching/` 评分内核：rubrics + scorer + transcript（8 能力 CJ-Bench 刑法化，已打通全阶段评分，先评 DS 辩护词 + CR 庭审）
 - [ ] 对抗质询增强：检察官/法官主动追问学生漏洞
-- [ ] LearningEvent 结构化记录
-- [ ] 学习者画像（跨案件累计知识/能力/错误）
-- [ ] 法源核验：本地法条库 + Qdrant（DFF 可插拔）
+- [x] LearningEvent 结构化记录（`teaching/{stage}_learning_event.json`）
+- [x] 学习者画像（跨案件累计知识/能力/错误，`sandbox_data/teaching/profiles/`）
+- [x] 法源核验：本地法条库（`legal_corpus/processed`：刑法 504 + 刑诉法 308）+ 本地词法 RAG（DFF 可插拔）
 
 ### P1（体验增强）
+- [ ] 前端报告页（P8）：阶段角标"已批阅" + 抽屉（能力横条/subsumption 三栏表/error_tags/overall_feedback）+ 学期雷达图（内联 SVG）
+- [ ] 即时法条校验前端警示 chip（`citation_feedback` 已从后端返回，前端未接 UI）
 - [ ] AI 对抗辩手（站在反方质询逼学生补证）
 - [ ] 复习/变式任务（错题归因、改一个关键事实重练）
 - [ ] 教师看板（班级共性问题聚合）
 - [ ] DFF API 对接（等接口修通）
+- [ ] 金标准回填 `scripts/backfill_gold.py`（guiding_points 55/124、defense_hint 37/124 → 124/124）
 
 ### P2（展示加分）
 - [ ] 数字人/语音（讯飞能力）
@@ -223,18 +257,27 @@ KnowledgeCard / CaseBundle / TaskItem / EvidencePack / LearningEvent / LearnerPr
 - [ ] 微调对比实验（评分模型 LoRA）
 
 ### 需要确认的决策
-1. 评分维度是否最终采用 5 维（事实识别/规则检索/要件涵摄/对抗论证/程序合规）
-2. 法条库来源：内置 JSON / DFF / 两者
-3. Qdrant 用 Docker 还是现有向量库环境
-4. 评分报告是否要接入学习者画像 + 推荐任务
+1. 评分维度是否最终采用 8 维 CJ-Bench 刑法化框架（教学模块已实现，见 `teaching/rubrics.py`）
+2. 法条库来源：内置 JSON ✓ / DFF（接口修通后增强）/ 两者
+3. Qdrant 是否还要接（当前本地词法 RAG 已离线可用）
+4. 评分报告已接入学习者画像 + 推荐任务（`/api/teaching/report`）
 
 ---
 
 ## 九、常用验证命令
 
 ```bash
-# 后端整体验证（模块导入 + manifest + FSM）
+# 后端整体验证（模块导入 + manifest + FSM + teaching）
 cd backend && .venv\Scripts\python.exe scripts\verify_criminal.py
+
+# 教学模块离线功能测试（rubrics/语料/检索/引用核验/假裁判评分/画像/报告）
+cd backend && .venv\Scripts\python.exe -X utf8 scripts\test_teaching.py
+
+# 构建本地法条库（《刑法》《刑诉法》PDF → legal_corpus/processed/*.jsonl）
+cd backend && .venv\Scripts\python.exe scripts\build_law_corpus_from_pdfs.py
+
+# 冷启动知识点（quiz_bank + 案例罪名 → src/teaching/knowledge_points.json）
+cd backend && .venv\Scripts\python.exe scripts\build_knowledge_points.py
 
 # 状态流转集成测试（临时脚本）
 .venv\Scripts\python.exe C:\Users\Legion\AppData\Local\Temp\opencode\test_fsm_flow.py

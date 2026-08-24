@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from ..prompts.prompt_assembler import PromptAssembler
 from ..data.data_loader import DataLoader
 from ..player_lawyer.responsibility_marker import build_player_responsibility_marker
-from ..pipeline.stage_tool_resolver import apply_stage_tool_permissions
+from ..pipeline.stage_tool_resolver import apply_stage_tool_permissions, clear_stage_tool_permissions
 from ..runtime_tech_strategy import RuntimeTechStrategy
 from ..utils.drafted_document_sections import (
     resolve_stage_document_text,
@@ -207,6 +207,11 @@ class ScenarioOrchestrator:
     def _configure_stage_tools(stage_code: str, role_to_agent: dict[str, Any]) -> dict[str, list[str]]:
         """Apply manifest-declared tool permissions for active scenario participants."""
         return apply_stage_tool_permissions(stage_code, role_to_agent)
+
+    @staticmethod
+    def _clear_stage_tools(stage_code: str, role_to_agent: dict[str, Any]) -> dict[str, list[str]]:
+        """Remove stage-exclusive tools after the scenario exits (防工具泄漏)."""
+        return clear_stage_tool_permissions(stage_code, role_to_agent)
 
     # ── Helper: load case data from client config ──
 
@@ -877,7 +882,6 @@ class ScenarioOrchestrator:
                 return client, client.config_path
         return None, None
 
-    @staticmethod
     def _build_consultation_case_summary(self, data_loader, case: dict[str, Any]) -> str:
         """构建委托洽谈阶段的"案情概览"：只含罪名/被羁押人/强制措施/简要背景，
         让当事人做概括陈述，不一次性注入完整案情与证据。"""
@@ -905,7 +909,7 @@ class ScenarioOrchestrator:
             parts.append("强制措施：" + "、".join(custody_parts))
         return "；".join(parts)
 
-    def _stringify_prompt_value(value: Any, fallback: str = "（暂无）") -> str:
+    def _stringify_prompt_value(self, value: Any, fallback: str = "（暂无）") -> str:
         if isinstance(value, list):
             cleaned = [str(item).strip() for item in value if str(item).strip()]
             if not cleaned:
@@ -932,6 +936,39 @@ class ScenarioOrchestrator:
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         logger.info(f"[Orchestrator] Saved {stage} result to {filepath}")
+
+    def _maybe_trigger_teaching_scoring(
+        self,
+        *,
+        case_id: str,
+        stage: str,
+        case_output_dir: Path,
+    ) -> None:
+        """阶段结束后异步触发教学评分（只评玩家辩护律师，不阻塞流程）。
+
+        仅当玩家真实扮演辩护律师（玩家模式开启且非 AI 代理）且该阶段在评分矩阵中
+        时才触发；任何异常只记录日志，绝不影响场景流转。
+        """
+        if not self._player_defense_lawyer_enabled():
+            return
+        if self._player_ai_surrogate_enabled():
+            return
+        try:
+            from ..teaching.rubrics import STAGE_CAPABILITY_MATRIX
+
+            if str(stage or "").strip().upper() not in STAGE_CAPABILITY_MATRIX:
+                return
+            from ..teaching.scorer import TeachingScorer
+
+            TeachingScorer().score_stage(
+                case_id=case_id,
+                stage=stage,
+                case_output_dir=case_output_dir,
+                student_id=str(getattr(self, "_teaching_student_id", "") or "").strip(),
+                run_async=True,
+            )
+        except Exception as exc:
+            logger.warning("[Orchestrator] 教学评分触发失败 case=%s stage=%s: %s", case_id, stage, exc)
 
     def _load_consultation_history(self, case_id: str, stage: str = "PLC") -> list[dict[str, Any]]:
         case_output_dir = self._get_case_output_dir(case_id)
@@ -2117,6 +2154,11 @@ class ScenarioOrchestrator:
                 stage_label=self.STAGE_DISPLAY_NAMES.get(display_stage_code, display_stage_code),
                 agents=[lawyer, client],
             )
+            self._maybe_trigger_teaching_scoring(
+                case_id=case_id,
+                stage="LC",
+                case_output_dir=case_output_dir,
+            )
 
             # Mark scenario as completed in checkpoint
             if self.checkpoint_manager:
@@ -2154,6 +2196,7 @@ class ScenarioOrchestrator:
             )
         finally:
             self._clear_case_stage_active(case_id)
+            self._clear_stage_tools("LC", {"client": client, "lawyer": lawyer})
 
             # Deactivate agents only if scenario completed successfully
             if lawyer.is_active:
@@ -2558,6 +2601,16 @@ class ScenarioOrchestrator:
             logger.error("[Orchestrator][INV] 找不到辩护律师: %s", case_id)
             return
 
+        _player_adapter = None
+        if (
+            self._player_defense_lawyer_enabled()
+            and not self._player_ai_surrogate_enabled()
+            and getattr(self, "_player_gateway", None) is not None
+        ):
+            _player_adapter = self._build_player_lawyer_adapter(lawyer, case_id=case_id, stage="INV")
+            lawyer = _player_adapter
+            logger.info("[Orchestrator] Using player defense-lawyer adapter for INV: %s", lawyer.name)
+
         logger.info("[Orchestrator] INV 开始: lawyer=%s client=%s case=%s", lawyer.name, client.name, case_id)
 
         scenario_id = f"INV_{case_id}"
@@ -2659,6 +2712,11 @@ class ScenarioOrchestrator:
                 stage_label="侦查阶段",
                 agents=[lawyer, client],
             )
+            self._maybe_trigger_teaching_scoring(
+                case_id=case_id,
+                stage="INV",
+                case_output_dir=case_output_dir,
+            )
             if self.checkpoint_manager:
                 self.checkpoint_manager.mark_scenario_completed(scenario_id)
             scenario_succeeded = True
@@ -2682,6 +2740,7 @@ class ScenarioOrchestrator:
             await self._report_runtime_issue(case_id=case_id, scenario_type="INV", exc=e, stage_label="侦查阶段")
         finally:
             self._clear_case_stage_active(case_id)
+            self._clear_stage_tools("INV", {"client": client, "lawyer": lawyer})
             if lawyer.is_active:
                 lawyer.deactivate()
             if client.is_active:
@@ -2725,6 +2784,17 @@ class ScenarioOrchestrator:
         if not lawyer:
             logger.error("[Orchestrator][PR] 找不到辩护律师: %s", case_id)
             return
+
+        _player_adapter = None
+        if (
+            self._player_defense_lawyer_enabled()
+            and not self._player_ai_surrogate_enabled()
+            and getattr(self, "_player_gateway", None) is not None
+        ):
+            _player_adapter = self._build_player_lawyer_adapter(lawyer, case_id=case_id, stage="PR")
+            lawyer = _player_adapter
+            logger.info("[Orchestrator] Using player defense-lawyer adapter for PR: %s", lawyer.name)
+
         prosecutor = self._select_available_prosecutor(case_id)
         if prosecutor is None:
             logger.error("[Orchestrator][PR] 找不到检察官 agent: %s", case_id)
@@ -2848,6 +2918,11 @@ class ScenarioOrchestrator:
                 stage_label="审查起诉阶段",
                 agents=[lawyer, defendant],
             )
+            self._maybe_trigger_teaching_scoring(
+                case_id=case_id,
+                stage="PR",
+                case_output_dir=case_output_dir,
+            )
             if self.checkpoint_manager:
                 self.checkpoint_manager.mark_scenario_completed(scenario_id)
             scenario_succeeded = True
@@ -2870,6 +2945,11 @@ class ScenarioOrchestrator:
             await self._report_runtime_issue(case_id=case_id, scenario_type="PR", exc=e, stage_label="审查起诉阶段")
         finally:
             self._clear_case_stage_active(case_id)
+            self._clear_stage_tools("PR", {
+                "lawyer": lawyer,
+                "prosecutor": prosecutor,
+                "defendant": defendant,
+            })
             for agent in (lawyer, prosecutor, defendant):
                 if getattr(agent, "is_active", False):
                     agent.deactivate()
@@ -2922,6 +3002,16 @@ class ScenarioOrchestrator:
         if not defendant or not lawyer:
             logger.error("[Orchestrator][DS] 缺少被告人或律师: %s", case_id)
             return
+
+        _player_adapter = None
+        if (
+            self._player_defense_lawyer_enabled()
+            and not self._player_ai_surrogate_enabled()
+            and getattr(self, "_player_gateway", None) is not None
+        ):
+            _player_adapter = self._build_player_lawyer_adapter(lawyer, case_id=case_id, stage="DS")
+            lawyer = _player_adapter
+            logger.info("[Orchestrator] Using player defense-lawyer adapter for DS: %s", lawyer.name)
 
         logger.info("[Orchestrator] DS 开始: lawyer=%s defendant=%s case=%s", lawyer.name, defendant.name, case_id)
 
@@ -3023,6 +3113,11 @@ class ScenarioOrchestrator:
                 stage_label="辩护词起草",
                 agents=[lawyer, defendant],
             )
+            self._maybe_trigger_teaching_scoring(
+                case_id=case_id,
+                stage="DS",
+                case_output_dir=case_output_dir,
+            )
             if self.checkpoint_manager:
                 self.checkpoint_manager.mark_scenario_completed(scenario_id)
             scenario_succeeded = True
@@ -3045,6 +3140,7 @@ class ScenarioOrchestrator:
             await self._report_runtime_issue(case_id=case_id, scenario_type="DS", exc=e, stage_label="辩护词起草")
         finally:
             self._clear_case_stage_active(case_id)
+            self._clear_stage_tools("DS", {"lawyer": lawyer, "defendant": defendant})
             for agent in (lawyer, defendant):
                 if getattr(agent, "is_active", False):
                     agent.deactivate()
@@ -3101,6 +3197,16 @@ class ScenarioOrchestrator:
                 defendant is not None, lawyer is not None, prosecutor is not None, judge is not None, case_id,
             )
             return
+
+        _player_adapter = None
+        if (
+            self._player_defense_lawyer_enabled()
+            and not self._player_ai_surrogate_enabled()
+            and getattr(self, "_player_gateway", None) is not None
+        ):
+            _player_adapter = self._build_player_lawyer_adapter(lawyer, case_id=case_id, stage="CR")
+            lawyer = _player_adapter
+            logger.info("[Orchestrator] Using player defense-lawyer adapter for CR: %s", lawyer.name)
 
         self._reserve_trial_resources(court, case_id, judge.agent_id)
 
@@ -3235,6 +3341,11 @@ class ScenarioOrchestrator:
                 stage_label="刑事一审庭审",
                 agents=[lawyer, defendant],
             )
+            self._maybe_trigger_teaching_scoring(
+                case_id=case_id,
+                stage="CR",
+                case_output_dir=case_output_dir,
+            )
             if self.checkpoint_manager:
                 self.checkpoint_manager.mark_scenario_completed(scenario_id)
             scenario_succeeded = True
@@ -3257,6 +3368,12 @@ class ScenarioOrchestrator:
             await self._report_runtime_issue(case_id=case_id, scenario_type="CR", exc=e, stage_label="刑事一审庭审")
         finally:
             self._clear_case_stage_active(case_id)
+            self._clear_stage_tools("CR", {
+                "judge": judge,
+                "prosecutor": prosecutor,
+                "defense_lawyer": lawyer,
+                "defendant": defendant,
+            })
             for agent in (judge, prosecutor, lawyer, defendant):
                 if getattr(agent, "is_active", False):
                     agent.deactivate()
@@ -3412,6 +3529,16 @@ class ScenarioOrchestrator:
             logger.error("[Orchestrator][CRA] 参与人不全 (%s)", case_id)
             return
 
+        _player_adapter = None
+        if (
+            self._player_defense_lawyer_enabled()
+            and not self._player_ai_surrogate_enabled()
+            and getattr(self, "_player_gateway", None) is not None
+        ):
+            _player_adapter = self._build_player_lawyer_adapter(lawyer, case_id=case_id, stage="CRA")
+            lawyer = _player_adapter
+            logger.info("[Orchestrator] Using player defense-lawyer adapter for CRA: %s", lawyer.name)
+
         self._reserve_trial_resources(court, case_id, judge.agent_id)
         logger.info("[Orchestrator] CRA 开始: judge=%s prosecutor=%s defense=%s appellant=%s case=%s",
                     judge.name, prosecutor.name, lawyer.name, appellant.name, case_id)
@@ -3528,6 +3655,11 @@ class ScenarioOrchestrator:
                 )
             if self.checkpoint_manager:
                 self.checkpoint_manager.mark_scenario_completed(scenario_id)
+            self._maybe_trigger_teaching_scoring(
+                case_id=case_id,
+                stage="CRA",
+                case_output_dir=case_output_dir,
+            )
             scenario_succeeded = True
 
         except Exception as e:
@@ -3548,6 +3680,12 @@ class ScenarioOrchestrator:
             await self._report_runtime_issue(case_id=case_id, scenario_type="CRA", exc=e, stage_label="刑事二审庭审")
         finally:
             self._clear_case_stage_active(case_id)
+            self._clear_stage_tools("CRA", {
+                "judge": judge,
+                "prosecutor": prosecutor,
+                "defense_lawyer": lawyer,
+                "appellant": appellant,
+            })
             for agent in (judge, prosecutor, lawyer, appellant):
                 if getattr(agent, "is_active", False):
                     agent.deactivate()

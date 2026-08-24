@@ -65,7 +65,7 @@ def player_lawyer_mode_for_frontend(
 ) -> str:
     """Return player-lawyer mode only when the runtime is allowed to be player-v2."""
     mode = player_lawyer_mode()
-    if mode != "plaintiff":
+    if mode not in {"plaintiff", "defendant"}:
         return ""
 
     resolved_frontend_mode = normalize_frontend_mode(

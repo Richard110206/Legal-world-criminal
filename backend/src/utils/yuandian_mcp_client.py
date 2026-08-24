@@ -236,6 +236,52 @@ class YuandianMCPClient:
         payload = self._call_tool(LAW_ENDPOINT_PATH, "yuandian_rh_fg_search", arguments)
         return self._extract_list(payload)
 
+    def search_law_detail(
+        self,
+        ft_id: str = "",
+        law_name: str = "",
+        ft_num: str = "",
+        refer_date: str = "",
+    ) -> dict[str, Any]:
+        """法条详情（溯源核验核心）——按 id 或 fgmc+ftnum 精确查单条法条完整原文。
+
+        返回：条号、完整条文内容、所属法规名、时效性、发布日期、实施日期等。
+        溯源核验场景：学生引用"刑法第264条" → 查详情核对完整原文。
+        """
+        arguments: dict[str, Any] = {}
+        if ft_id:
+            arguments["id"] = str(ft_id)
+        if law_name:
+            arguments["fgmc"] = str(law_name)
+        if ft_num:
+            arguments["ftnum"] = str(ft_num)
+        if refer_date:
+            arguments["refer_date"] = str(refer_date)
+        payload = self._call_tool(LAW_ENDPOINT_PATH, "yuandian_rh_ft_detail", arguments)
+        data = payload.get("data") if isinstance(payload, dict) else None
+        return data if isinstance(data, dict) else payload
+
+    def search_law_fg_detail(
+        self,
+        fg_id: str = "",
+        law_name: str = "",
+        refer_date: str = "",
+    ) -> dict[str, Any]:
+        """法规详情——按 id 或 fgmc 精确查整部法规基础信息与时效版本。
+
+        返回：法规名、效力层级、发布部门、发布日期、实施日期、时效性等。
+        """
+        arguments: dict[str, Any] = {}
+        if fg_id:
+            arguments["id"] = str(fg_id)
+        if law_name:
+            arguments["fgmc"] = str(law_name)
+        if refer_date:
+            arguments["refer_date"] = str(refer_date)
+        payload = self._call_tool(LAW_ENDPOINT_PATH, "yuandian_rh_fg_detail", arguments)
+        data = payload.get("data") if isinstance(payload, dict) else None
+        return data if isinstance(data, dict) else payload
+
     # ── 业务方法：案例 ─────────────────────────────────────────────
     def search_case_semantic(
         self,

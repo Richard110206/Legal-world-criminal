@@ -418,6 +418,38 @@ from src.player_lawyer.input_gateway import PlayerInputGateway as _PlayerInputGa
 
 app.include_router(_player_lawyer_router)
 
+# ── Teaching subsystem (LLM-as-judge scoring + learner profiles) ──
+from src.teaching.routes import (
+    router as _teaching_router,
+    set_storage_provider as _set_teaching_storage_provider,
+)
+
+
+def _teaching_storage_for_request(request: Request) -> tuple[Path, str]:
+    """Resolve (storage_root, user_id) for the authenticated user's sandbox."""
+    from src.core.auth import AuthError
+    from src.core.user_service import UserNotFoundError
+
+    token = _extract_bearer_token(request.headers.get("authorization"))
+    try:
+        with get_db_session(_get_session_factory()) as session:
+            current_user = _get_user_from_access_token(token, session)
+            sandbox = _require_user_sandbox(session, current_user)
+    except (AuthError, UserNotFoundError) as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    storage_root = str(sandbox.storage_root or "")
+    if not storage_root:
+        context = _get_sandbox_manager().get_or_create_context(sandbox)
+        storage_root = str(
+            getattr(context, "storage_root", None) or getattr(context, "sandbox_data_dir", "")
+        )
+    return Path(storage_root), str(getattr(current_user, "id", ""))
+
+
+_set_teaching_storage_provider(_teaching_storage_for_request)
+app.include_router(_teaching_router)
+
 # Per-sandbox gateway instances, keyed by sandbox_id
 _player_gateways: dict[str, _PlayerInputGateway] = {}
 
@@ -476,6 +508,7 @@ def _get_player_gateway_for_request(request: Request) -> _PlayerInputGateway:
     if orchestrator is not None:
         setattr(orchestrator, "_player_gateway", gateway)
         setattr(orchestrator, "_sandbox_id", sandbox.id)
+        setattr(orchestrator, "_teaching_student_id", str(sandbox.user_id))
     return gateway
 
 
@@ -1000,6 +1033,21 @@ def _build_sandbox_runtime_context(sandbox: Sandbox, storage_root: Path) -> Sand
         frontend_mode=SIMLAW_FRONTEND_MODE,
         turn_mode=SIMLAW_TURN_MODE,
     )
+    # 教学技能卡：把当前学生（登录用户）的技能卡目录注入律师 agent 的技能搜索路径
+    try:
+        from src.teaching.skill_card import student_skill_dir
+
+        from src.agents.lawyer_agent import set_student_skill_card_dir
+
+        _card_dir = student_skill_dir(str(sandbox.user_id))
+        if _card_dir.is_dir():
+            set_student_skill_card_dir(str(_card_dir))
+            logger.info("[SkillCard] injecting student skill cards for user %s from %s", sandbox.user_id, _card_dir)
+        else:
+            set_student_skill_card_dir(None)
+    except Exception as exc:
+        logger.debug("[SkillCard] skill card injection skipped: %s", exc)
+
     runtime_event_bus, runtime_registry, runtime_checkpoint_mgr, runtime_storage, runtime_case_fsm = (
         _initialize_runtime_state(
             existing_engine=runtime_engine,
@@ -1042,6 +1090,7 @@ def _build_sandbox_runtime_context(sandbox: Sandbox, storage_root: Path) -> Sand
             setattr(context.orchestrator, "_player_gateway", player_gateway)
             setattr(context.orchestrator, "_player_broadcast_fn", _broadcast_player_lawyer_event)
             setattr(context.orchestrator, "_sandbox_id", sandbox.id)
+            setattr(context.orchestrator, "_teaching_student_id", str(sandbox.user_id))
 
     async def _runtime_issue_reporter(
         *,
@@ -2138,6 +2187,7 @@ def _ensure_player_lawyer_runtime(sandbox: Sandbox) -> tuple[SandboxRuntimeConte
     if orchestrator is not None:
         setattr(orchestrator, "_player_gateway", gateway)
         setattr(orchestrator, "_sandbox_id", sandbox.id)
+        setattr(orchestrator, "_teaching_student_id", str(sandbox.user_id))
     # 玩家输入未决时挂起对话 gate：防止「轮到你了」面板出现后案情继续自动推进
     engine = getattr(context, "engine", None)
     if engine is not None and callable(getattr(engine, "set_player_pending_check", None)):
@@ -2766,12 +2816,21 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({"type": "player_lawyer_error", "error": str(exc)})
                     continue
 
+                citation_feedback = None
+                try:
+                    from src.teaching.citation_check import check_submission_citations
+
+                    citation_feedback = check_submission_citations(message)
+                except Exception as exc:
+                    logger.warning("[WS] instant citation check failed: %s", exc)
+
                 await _broadcast_sandbox_event(
                     str(sandbox.id),
                     {
                         "type": "player_lawyer_input_submitted",
                         "event": "player_lawyer_input_submitted",
                         "data": resolved.to_dict(),
+                        **({"citation_feedback": citation_feedback} if citation_feedback else {}),
                     },
                 )
                 continue

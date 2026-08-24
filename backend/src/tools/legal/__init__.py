@@ -43,13 +43,17 @@ from .judgment_drafting_registry import (
     render_judgment_document_payload,
 )
 from .save_lawyer_memory_tool import create_save_lawyer_memory_tool, normalize_lawyer_memory
+from .load_lawyer_memory_tool import create_load_lawyer_memory_tool
 from .yuandian_law_tool import (
     YUANDIAN_CASE_TOOL_NAME,
+    YUANDIAN_LAW_DETAIL_TOOL_NAME,
     YUANDIAN_LAW_TOOL_NAME,
     create_yuandian_case_tool,
+    create_yuandian_law_detail_tool,
     create_yuandian_law_tool,
     search_yuandian_case,
     search_yuandian_law,
+    search_yuandian_law_detail,
 )
 
 # ── 刑事工具 ────────────────────────────────────────────────────
@@ -112,6 +116,7 @@ __all__ = [
     "create_document_compare_tool",
     "create_judgment_document_tool_for_scenario",
     "create_save_lawyer_memory_tool",
+    "create_load_lawyer_memory_tool",
     "extract_document_drafting_tool_payload",
     "extract_judgment_document_tool_payload",
     "get_document_drafting_result_field",
@@ -129,11 +134,14 @@ __all__ = [
     "render_judgment_document_payload",
     # 元典法条/案例检索
     "YUANDIAN_CASE_TOOL_NAME",
+    "YUANDIAN_LAW_DETAIL_TOOL_NAME",
     "YUANDIAN_LAW_TOOL_NAME",
     "create_yuandian_case_tool",
+    "create_yuandian_law_detail_tool",
     "create_yuandian_law_tool",
     "search_yuandian_case",
     "search_yuandian_law",
+    "search_yuandian_law_detail",
     # 刑事 — 起诉书
     "INDICTMENT_DOCUMENT_TYPE",
     "INDICTMENT_TOOL_NAME",

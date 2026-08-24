@@ -212,7 +212,21 @@ async def submit_response(request: Request, body: SubmitResponseBody):
             )
         except Exception as exc:
             logger.warning("[PlayerLawyer] Failed to record ledger submission: %s", exc)
-    return {"success": True, "request": req.to_dict(), "assist": assist_payload}
+
+    citation_feedback = None
+    try:
+        from ..teaching.citation_check import check_submission_citations
+
+        citation_feedback = check_submission_citations(final_message)
+    except Exception as exc:
+        logger.warning("[PlayerLawyer] Failed to run instant citation check: %s", exc)
+
+    return {
+        "success": True,
+        "request": req.to_dict(),
+        "assist": assist_payload,
+        "citation_feedback": citation_feedback,
+    }
 
 
 @router.post("/polish-response")

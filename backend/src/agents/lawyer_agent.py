@@ -110,6 +110,25 @@ def _experiment_gitskill_disabled() -> bool:
     return str(os.environ.get("SIMLAW_CSD_GITSKILL_DISABLED") or "").strip() == "1"
 
 
+# 教学技能卡注入：当前登录学生的技能卡目录（由 ws_server 按沙箱归属设置，
+# 避免 env 全局变量在多用户并发下串卡）
+_student_skill_card_dir: Optional[str] = None
+
+
+def set_student_skill_card_dir(path: Optional[str]) -> None:
+    global _student_skill_card_dir
+    _student_skill_card_dir = str(path) if path else None
+
+
+def _student_skill_card_dirs() -> list[str]:
+    if not _student_skill_card_dir:
+        return []
+    root = Path(_student_skill_card_dir)
+    if not root.is_dir():
+        return []
+    return [str(root)]
+
+
 def _resolve_default_lawyer_skill_dirs(
     *,
     config_path: Any = None,
@@ -118,6 +137,9 @@ def _resolve_default_lawyer_skill_dirs(
     backend_dir = Path(__file__).resolve().parents[2]
     public_root = backend_dir / "legal-skillhub" / "public"
     skill_dirs: list[str] = [str(public_root)]
+
+    # 学生上一局沉淀的教学技能卡（弱点补强卡）
+    skill_dirs.extend(_student_skill_card_dirs())
 
     config_dir = _resolve_lawyer_config_dir(config_path)
     if config_dir is not None:

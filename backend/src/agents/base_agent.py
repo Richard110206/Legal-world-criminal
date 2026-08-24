@@ -151,6 +151,114 @@ def _extract_skill_names_from_usage_log(skill_usage_log: Any) -> list[str]:
     return _dedupe_strings(skill_names)
 
 
+RETRIEVAL_TOOL_NAMES = {
+    "search_yuandian_law",
+    "search_yuandian_law_detail",
+    "search_yuandian_case",
+    "search_laws",
+    "search_cases",
+    "check_citations",
+}
+
+
+def _extract_tool_call_result_text(record: Any) -> str:
+    if isinstance(record, dict):
+        for key in ("result", "return_value", "output"):
+            value = record.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+            if isinstance(value, dict):
+                inner = value.get("result") or value.get("output")
+                if isinstance(inner, str) and inner.strip():
+                    return inner
+        raw_record = record.get("raw_record")
+        if raw_record is not None and raw_record is not record:
+            return _extract_tool_call_result_text(raw_record)
+        return ""
+    for attr in ("result", "return_value", "output"):
+        value = getattr(record, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
+
+
+def _parse_retrieval_hit_line(line: str) -> Optional[Dict[str, str]]:
+    """Parse one numbered hit line like '1. 法规：刑法；条：第二百六十四条；…'."""
+    text = str(line or "").strip()
+    if not re.match(r"^\d+\.\s*\S", text):
+        return None
+    cleaned = re.sub(r"^\d+\.\s*", "", text)
+    parts: Dict[str, str] = {}
+    leftover: list[str] = []
+    for segment in re.split(r"[；;]", cleaned):
+        segment = segment.strip()
+        if not segment:
+            continue
+        if "：" in segment:
+            key, _, value = segment.partition("：")
+            key = key.strip()
+            if key in {"法规", "法条", "条", "条号", "效力", "状态", "时效", "案号", "法院"}:
+                parts[key] = value.strip()
+                continue
+            if key in {"内容", "摘要"}:
+                parts["_preview"] = segment
+                continue
+        leftover.append(segment)
+    title = parts.get("法规") or parts.get("法条") or ""
+    if not title and not parts.get("条") and not parts.get("案号"):
+        return None
+    if not title:
+        title = leftover[0] if leftover else ""
+    if not title:
+        return None
+    hit: Dict[str, str] = {"title": title}
+    if parts.get("条") or parts.get("条号"):
+        hit["article"] = parts.get("条") or parts.get("条号") or ""
+    if parts.get("效力"):
+        hit["effect"] = parts["效力"]
+    if parts.get("时效") or parts.get("状态"):
+        hit["status"] = parts.get("时效") or parts.get("状态") or ""
+    if parts.get("_preview"):
+        hit["content_preview"] = parts["_preview"][:180]
+    return hit
+
+
+def _build_retrieval_events(tool_calls: Any) -> list[Dict[str, Any]]:
+    """Extract structured retrieval events (query + hits) for frontend display."""
+    events: list[Dict[str, Any]] = []
+    for record in list(tool_calls or []):
+        tool_name = _extract_tool_call_name(record)
+        if tool_name not in RETRIEVAL_TOOL_NAMES:
+            continue
+        args = _extract_tool_call_arguments(record)
+        query = str(
+            args.get("query") or args.get("keyword") or args.get("law_name")
+            or args.get("ft_num") or ""
+        ).strip()
+        if not query and tool_name == "check_citations":
+            query = "引用核验"
+        result_text = _extract_tool_call_result_text(record)
+        hits: list[Dict[str, str]] = []
+        for line in result_text.splitlines():
+            stripped = line.strip()
+            if hits and (stripped.startswith("内容：") or stripped.startswith("摘要：")):
+                if "content_preview" not in hits[-1]:
+                    hits[-1]["content_preview"] = stripped[:180]
+                continue
+            parsed = _parse_retrieval_hit_line(line)
+            if parsed is not None:
+                hits.append(parsed)
+            if len(hits) >= 5:
+                break
+        events.append({
+            "tool": tool_name,
+            "query": query[:120],
+            "hit_count": len(hits),
+            "hits": hits,
+        })
+    return events[:3]
+
+
 def _record_tool_call_guard(agent: Any, tool_name: str) -> None:
     state = getattr(agent, "_simlaw_step_guard_state", None)
     if not isinstance(state, dict):
@@ -759,6 +867,10 @@ class BaseAgent(ABC):
         if not tool_names and not skill_names:
             return {}
 
+        retrieval_events = _build_retrieval_events(
+            list(self._last_tool_call_records or self._last_step_info.get("tool_calls") or [])
+        )
+
         stage_code = (
             str(getattr(self, "_simlaw_trace_stage_code", "") or "").strip().upper()
             or str(getattr(self, "_simlaw_stage_code", "") or "").strip().upper()
@@ -779,6 +891,8 @@ class BaseAgent(ABC):
             "skill_names": skill_names,
             "active_skill_names": skill_names,
         }
+        if retrieval_events:
+            payload["retrieval_events"] = retrieval_events
         return payload
 
     def set_runtime_tech_callback(self, callback: Any, *, case_id: str = "") -> None:

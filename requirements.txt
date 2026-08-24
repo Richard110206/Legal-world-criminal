@@ -24,6 +24,7 @@ pathlib>=1.0.1
 tqdm>=4.66.0
 numpy>=1.26.0
 requests>=2.31.0
+pymupdf>=1.24.0  # 法条 PDF → legal_corpus/processed JSONL（教学法条库构建）
 
 # 数据库与认证
 SQLAlchemy>=2.0.0

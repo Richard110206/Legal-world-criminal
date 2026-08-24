@@ -15,6 +15,7 @@ CITATION_CHECK_TOOL_NAME = "check_citations"
 DEFAULT_LEGAL_CORPUS_DIR = Path(__file__).resolve().parents[3] / "legal_corpus" / "processed"
 ARTICLE_REF_RE = (
     r"第[一二三四五六七八九十百千万零〇\d]+条"
+    r"(?:之[一二三四五六七八九十百千零〇\d]+)?"
     r"(?:第[一二三四五六七八九十百千万零〇\d]+款)?"
     r"(?:第[一二三四五六七八九十百千万零〇\d]+项)?"
 )

@@ -100,7 +100,7 @@
 ### 已确认的评分决策（用户拍板 + 已实现）
 1. **评分对象**：只评学生扮演的辩护律师发言
 2. **评分时机**：整个阶段结束之后统一评分（异步线程，不阻塞流程）
-3. **法条溯源**：本地法条库 RAG（零外部依赖），DFF/向量库留作增强
+3. **法条溯源**：本地法条库 RAG（零外部依赖），Dify/向量库留作增强
 4. **评分框架**：采用 **CJ-Bench 8 能力刑法化**（非旧 5 维度草案）
 
 ### 评分框架（8 能力，唯一权威在 `teaching/rubrics.py`）
@@ -173,12 +173,12 @@ teaching/
 
 ## 六、关键技术决策与现状
 
-### DFF API（法条检索）
+### Dify API（法条检索）
 - URL: `http://121.46.5.115/v1`（Dify 风格 API）
-- API Key: `app-KcKmhii3cv1mZ8crSm30b31e`
+- API Key: 见 `.env` 的 `DIFY_API_KEY`（不入库）
 - **现状：接口测试不通**（nginx 404，Dify 未正确路由到 /v1；`/app/{id}/develop` 也不可访问）
 - 已多次测试确认（2026-08）：`/v1/chat-messages`、`/v1/parameters`、`/v1/apps`、`/v1/messages`、`/console/api` 全部 404，80 端口只有 nginx 默认页
-- **决策：先不阻塞主线**，DFF 接口做可插拔设计（`DifyCitationSource` 类），修好后切换
+- **决策：先不阻塞主线**，Dify 接口做可插拔设计（`DifyCitationSource` 类），修好后切换
 
 ### 向量数据库选型
 - **推荐 Qdrant**（轻量、Docker 单容器、支持过滤+标量检索、比赛演示稳定）
@@ -193,7 +193,7 @@ teaching/
 - **元典 MCP**（`utils/yuandian_mcp_client.py` + `tools/legal/yuandian_law_tool.py`）：`.env` 已配 `YUANDIAN_API_KEY`，但依赖外网 `open.chineselaw.com`，演示环境不可靠；工具已注册常驻，调用失败返回错误文本不阻断
 
 ### RAG / 微调定位（对齐星火智学说明书）
-- **RAG**：增强现有 `search_laws` 工具（精确匹配条号 + Qdrant 语义兜底 + DFF 权威核验），不改变案例流程
+- **RAG**：增强现有 `search_laws` 工具（精确匹配条号 + Qdrant 语义兜底 + Dify 权威核验），不改变案例流程
 - **微调**：现阶段**不需要**。说明书明确"微调只优化教学话术，事实知识靠 RAG"。评分先用 prompt 工程，等 50+ 评分数据再考虑 LoRA 对比实验
 
 ---
@@ -222,12 +222,12 @@ teaching/
 ### 核心数据对象
 KnowledgeCard / CaseBundle / TaskItem / EvidencePack / LearningEvent / LearnerProfile / Recommendation
 
-### 法条溯源设计（本地词法 RAG + DFF 可插拔）
+### 法条溯源设计（本地词法 RAG + Dify 可插拔）
 ```
 学生发言
   ├─(A) 提取引用「刑法第264条」→ 精确匹配（teaching/law_corpus.verify_citation）
   ├─(B) 本地词法 RAG 语义兜底 → 学生意思对但条号写错（search_law 查漏/建议相近法条）
-  ├─(C) DFF API（可插拔，接口修通后启用）→ 权威法条原文 + 时效核验
+  ├─(C) Dify API（可插拔，接口修通后启用）→ 权威法条原文 + 时效核验
   └─(D) LLM裁判整合 → 引用是否正确 → error_tags / knowledge_gaps
 ```
 
@@ -240,7 +240,7 @@ KnowledgeCard / CaseBundle / TaskItem / EvidencePack / LearningEvent / LearnerPr
 - [ ] 对抗质询增强：检察官/法官主动追问学生漏洞
 - [x] LearningEvent 结构化记录（`teaching/{stage}_learning_event.json`）
 - [x] 学习者画像（跨案件累计知识/能力/错误，`sandbox_data/teaching/profiles/`）
-- [x] 法源核验：本地法条库（`legal_corpus/processed`：刑法 504 + 刑诉法 308）+ 本地词法 RAG（DFF 可插拔）
+- [x] 法源核验：本地法条库（`legal_corpus/processed`：刑法 504 + 刑诉法 308）+ 本地词法 RAG（Dify 可插拔）
 
 ### P1（体验增强）
 - [ ] 前端报告页（P8）：阶段角标"已批阅" + 抽屉（能力横条/subsumption 三栏表/error_tags/overall_feedback）+ 学期雷达图（内联 SVG）
@@ -248,7 +248,7 @@ KnowledgeCard / CaseBundle / TaskItem / EvidencePack / LearningEvent / LearnerPr
 - [ ] AI 对抗辩手（站在反方质询逼学生补证）
 - [ ] 复习/变式任务（错题归因、改一个关键事实重练）
 - [ ] 教师看板（班级共性问题聚合）
-- [ ] DFF API 对接（等接口修通）
+- [ ] Dify API 对接（等接口修通）
 - [ ] 金标准回填 `scripts/backfill_gold.py`（guiding_points 55/124、defense_hint 37/124 → 124/124）
 
 ### P2（展示加分）
@@ -258,7 +258,7 @@ KnowledgeCard / CaseBundle / TaskItem / EvidencePack / LearningEvent / LearnerPr
 
 ### 需要确认的决策
 1. 评分维度是否最终采用 8 维 CJ-Bench 刑法化框架（教学模块已实现，见 `teaching/rubrics.py`）
-2. 法条库来源：内置 JSON ✓ / DFF（接口修通后增强）/ 两者
+2. 法条库来源：内置 JSON ✓ / Dify（接口修通后增强）/ 两者
 3. Qdrant 是否还要接（当前本地词法 RAG 已离线可用）
 4. 评分报告已接入学习者画像 + 推荐任务（`/api/teaching/report`）
 

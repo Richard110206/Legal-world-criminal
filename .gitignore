@@ -3,8 +3,10 @@
 venv/
 backend/.venv/
 
-# Frontend source is not part of this public code release.
-frontend/
+# Frontend: source IS released; only dependencies and build output are ignored.
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
 frontend-v2/
 node_modules/
 

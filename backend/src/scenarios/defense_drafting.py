@@ -145,6 +145,7 @@ class DefenseDraftingScenario(BaseScenario):
                         scenario_type=self.scenario_type,
                         document_title=self.DOCUMENT_TITLE,
                         end_marker=self.END_MARKER,
+                        player_mode=self._is_player_lawyer(lawyer),
                     ),
                 )
                 self._add_dialog("lawyer", forced_response)
@@ -186,6 +187,10 @@ class DefenseDraftingScenario(BaseScenario):
         if self.output_path:
             self._save_result(result)
         return result
+
+    @staticmethod
+    def _is_player_lawyer(lawyer: Any) -> bool:
+        return getattr(lawyer, "expects_player_input_for_current_step", None) is not None
 
     def _extract_defense(self) -> str:
         for entry in reversed(self.dialog_history):
@@ -243,10 +248,10 @@ class DefenseDraftingScenario(BaseScenario):
 
     def _force_final_defense(self, lawyer: Any, defendant_message: str) -> None:
         prompt = build_forced_document_prompt(
-            party_message=defendant_message,
+            scenario_type=self.scenario_type,
             document_title=self.DOCUMENT_TITLE,
             end_marker=self.END_MARKER,
-            tool_name=get_document_drafting_tool_name(self.scenario_type),
+            player_mode=self._is_player_lawyer(lawyer),
         )
         lawyer_response = self._step_with_retry(lawyer, prompt)
         self._add_dialog("lawyer", lawyer_response)

@@ -3309,22 +3309,42 @@ class ScenarioOrchestrator:
                 defendant=defendant,
             )
 
-            scenario = CriminalTrialScenario(
-                judge_agent=judge,
-                prosecutor_agent=prosecutor,
-                defendant_agent=defendant,
-                defense_lawyer_agent=lawyer,
-                max_debate_rounds=4,
-                max_investigation_rounds=5,
-                verbose=SCENARIO_VERBOSE,
-                court_finding=str(fi.get("court_finding") or ""),
-                court_opinion=str(fi.get("court_opinion") or ""),
-                output_path=output_path,
+            role_to_agent_id = {
+                "judge": judge.agent_id,
+                "prosecutor": prosecutor.agent_id,
+                "defense_lawyer": lawyer.agent_id,
+                "defendant": defendant.agent_id,
+            }
+
+            def factory(bubble_publisher):
+                return CriminalTrialScenario(
+                    judge_agent=judge,
+                    prosecutor_agent=prosecutor,
+                    defendant_agent=defendant,
+                    defense_lawyer_agent=lawyer,
+                    max_debate_rounds=4,
+                    max_investigation_rounds=5,
+                    verbose=SCENARIO_VERBOSE,
+                    court_finding=str(fi.get("court_finding") or ""),
+                    court_opinion=str(fi.get("court_opinion") or ""),
+                    output_path=output_path,
+                    bubble_publisher=bubble_publisher,
+                    trace_recorder=trace_recorder,
+                    trace_stage_code="CR",
+                    trace_stage_key="CR",
+                )
+
+            result = await self._run_sync_scenario_with_live_bubbles(
+                case_id=case_id,
+                scenario_factory=factory,
+                role_to_agent_id=role_to_agent_id,
+                gap=0.9,
                 trace_recorder=trace_recorder,
                 trace_stage_code="CR",
                 trace_stage_key="CR",
+                trace_agents=[judge, prosecutor, lawyer, defendant],
+                trace_result_path=case_output_dir / "CR_result.json",
             )
-            result = await asyncio.to_thread(scenario.execute)
             self._save_result(case_id, "CR", result or {})
             if trace_recorder is not None:
                 trace_recorder.export_stage(

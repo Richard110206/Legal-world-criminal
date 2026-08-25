@@ -1,11 +1,15 @@
 """Local legal-law retrieval + citation verification for the teaching module.
 
-Ported from the legal-rag-poc approach (lexical n-gram cosine + keyword fusion),
-adapted to read the project's `legal_corpus/processed/*.jsonl` (刑法 / 刑诉法)
-so it works fully offline with zero heavy dependencies.
+Reads the project's `legal_corpus/processed/*.jsonl` (刑法 / 刑诉法)
+and works fully offline with zero heavy dependencies.
+
+Ranking is BM25 (k1=1.5, b=0.75) over character n-grams, with a field-weight
+boost on article_ref hits (×4.0, mirroring the upstream case_retrieval_tool's
+title/cause field weighting). IDF down-weights statutory boilerplate and the
+length normalization stops long articles from winning on volume.
 
 Responsibilities:
-  - `search_law(query, top_k)`   → semantic-ish statute retrieval (法条溯源/查漏)
+  - `search_law(query, top_k)`   → BM25 statute retrieval (法条溯源/查漏)
   - `verify_citation(title, article_ref)` → exact article verification
   - `resolve_article(title, article_ref)` → full text of one article
 """
@@ -14,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from collections import Counter
 from functools import lru_cache
@@ -28,6 +33,18 @@ _ARTICLE_LABEL_RE = re.compile(r"第[一二三四五六七八九十百千万零�
 _CJK_RUN_RE = re.compile(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]+")
 
 TRUE_ENV_VALUES = {"1", "true", "yes", "on", "enabled"}
+
+# BM25 parameters: standard IR defaults, same as upstream case_retrieval_tool.
+BM25_K1 = 1.5
+BM25_B = 0.75
+# Field weight for article_ref term hits: the article label ("第二百六十四条")
+# is the strongest relevance signal in statute retrieval.
+ARTICLE_REF_FIELD_WEIGHT = 4.0
+# Exact article-label match dominance: when the query names a specific article
+# ("刑法第二百六十四条") and a document's article_ref contains that label, the
+# label is a primary key — body-text cross-references ("依照本法第二百六十四条
+# 的规定定罪处罚") in other articles must not outrank the article itself.
+EXACT_LABEL_BOOST = 3.0
 
 
 def _normalize_text(value: Any) -> str:
@@ -59,41 +76,79 @@ def _tokenize(text: str) -> Counter:
     return Counter(tokens)
 
 
-def _cosine_score(left: Counter, right: Counter) -> float:
-    overlap = set(left) & set(right)
-    if not overlap:
-        return 0.0
-    dot = sum(left[token] * right[token] for token in overlap)
-    left_norm = sum(value * value for value in left.values()) ** 0.5
-    right_norm = sum(value * value for value in right.values()) ** 0.5
-    if not left_norm or not right_norm:
-        return 0.0
-    return dot / (left_norm * right_norm)
+@lru_cache(maxsize=1)
+def _build_bm25_index() -> dict[str, Any] | None:
+    """Precompute per-document term frequencies and corpus-level IDF.
+
+    Two fields are indexed separately with BM25F-style additive fusion:
+    content (weight 1.0) and article_ref (weight ARTICLE_REF_FIELD_WEIGHT).
+    Additive fusion keeps body-text hits visible even when the label field
+    dominates, unlike max/override fusion.
+    """
+    records = _load_corpus_records()
+    if not records:
+        return None
+
+    content_terms: list[Counter] = []
+    ref_terms: list[Counter] = []
+    df: Counter = Counter()
+    for record in records:
+        content_counter = _tokenize(record.get("_content") or "")
+        label_counter = _tokenize(record.get("_article_ref") or "")
+        content_terms.append(content_counter)
+        ref_terms.append(label_counter)
+        for term in set(content_counter) | set(label_counter):
+            df[term] += 1
+
+    total_docs = len(records)
+    doc_lengths = [
+        sum(c.values()) + ARTICLE_REF_FIELD_WEIGHT * sum(r.values())
+        for c, r in zip(content_terms, ref_terms)
+    ]
+    avgdl = (sum(doc_lengths) / total_docs) if total_docs else 1.0
+    idf = {
+        term: math.log((total_docs - doc_freq + 0.5) / (doc_freq + 0.5) + 1.0)
+        for term, doc_freq in df.items()
+    }
+    return {
+        "content_terms": content_terms,
+        "ref_terms": ref_terms,
+        "doc_lengths": doc_lengths,
+        "avgdl": avgdl,
+        "idf": idf,
+        "total_docs": total_docs,
+    }
 
 
-def _keyword_score(query: str, text: str) -> float:
-    normalized_query = _normalize_text(query)
-    normalized_text = _normalize_text(text)
-    if not normalized_query:
-        return 0.0
+def _field_score(
+    term_freq: int,
+    field_weight: float,
+    doc_length: float,
+    avgdl: float,
+    term_idf: float,
+) -> float:
+    weighted_tf = field_weight * term_freq
+    numerator = weighted_tf * (BM25_K1 + 1.0)
+    denominator = weighted_tf + BM25_K1 * (1.0 - BM25_B + BM25_B * doc_length / avgdl)
+    return term_idf * numerator / denominator
 
-    terms = [term for term in re.split(r"[\s,，。；;：:、]+", normalized_query) if term]
+
+def _bm25_score(index: dict[str, Any], doc_idx: int, query_counter: Counter) -> float:
+    content_terms: Counter = index["content_terms"][doc_idx]
+    ref_terms: Counter = index["ref_terms"][doc_idx]
+    doc_length = index["doc_lengths"][doc_idx]
+    avgdl = index["avgdl"]
+    idf = index["idf"]
+
     score = 0.0
-    hits = 0
-    for term in terms:
-        if term in normalized_text:
-            hits += 1
-            if len(term) >= 6:
-                score += 3.2
-            elif len(term) >= 4:
-                score += 2.2
-            else:
-                score += 0.8
-    if hits >= 2:
-        score += 2.0
-    article_match = _ARTICLE_LABEL_RE.search(normalized_query)
-    if article_match and article_match.group(0) in normalized_text:
-        score += 8.0
+    for term in query_counter:
+        if term not in idf:
+            continue
+        term_idf = idf[term]
+        if term in content_terms:
+            score += _field_score(content_terms[term], 1.0, doc_length, avgdl, term_idf)
+        if term in ref_terms:
+            score += _field_score(ref_terms[term], ARTICLE_REF_FIELD_WEIGHT, doc_length, avgdl, term_idf)
     return score
 
 
@@ -129,6 +184,7 @@ def _load_corpus_records() -> list[dict[str, Any]]:
 
 def clear_corpus_cache() -> None:
     _load_corpus_records.cache_clear()
+    _build_bm25_index.cache_clear()
 
 
 def corpus_stats() -> dict[str, Any]:
@@ -139,6 +195,7 @@ def corpus_stats() -> dict[str, Any]:
         "corpus_dir": str(LEGAL_CORPUS_DIR),
         "total_articles": len(records),
         "by_title": dict(counts),
+        "ranker": f"bm25(k1={BM25_K1}, b={BM25_B})",
     }
 
 
@@ -154,7 +211,7 @@ def _title_matches(record: dict[str, Any], title: str | None) -> bool:
 
 
 def search_law(query: str, top_k: int = 5, title: str | None = None) -> list[dict[str, Any]]:
-    """Retrieve most relevant statute articles for a query (lexical RAG)."""
+    """Retrieve most relevant statute articles for a query (BM25)."""
     query_text = str(query or "").strip()
     if not query_text:
         return []
@@ -163,32 +220,35 @@ def search_law(query: str, top_k: int = 5, title: str | None = None) -> list[dic
     if not records:
         return []
 
+    index = _build_bm25_index()
+    if index is None:
+        return []
+
     query_tokens = _tokenize(query_text)
-    scored: list[tuple[float, float, float, dict[str, Any]]] = []
-    for record in records:
+    query_label = _ARTICLE_LABEL_RE.search(_normalize_text(query_text))
+    scored: list[tuple[float, int, dict[str, Any]]] = []
+    for doc_idx, record in enumerate(records):
         if not _title_matches(record, title):
             continue
-        text = f"{record.get('_article_ref') or ''} {record.get('_content') or ''}"
-        vector_score = _cosine_score(query_tokens, _tokenize(text))
-        keyword_score = _keyword_score(query_text, text)
-        combined = vector_score * 2.0 + keyword_score
-        article_label = _ARTICLE_LABEL_RE.search(record.get("_article_ref") or "")
-        if article_label and article_label.group(0) in text:
-            combined += 0.15
-        scored.append((combined, keyword_score, vector_score, record))
+        score = _bm25_score(index, doc_idx, query_tokens)
+        if query_label:
+            normalized_ref = _normalize_text(record.get("_article_ref") or "")
+            if query_label.group(0) in normalized_ref:
+                score *= EXACT_LABEL_BOOST
+        if score <= 0.0:
+            continue
+        scored.append((score, doc_idx, record))
 
-    scored.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
     results: list[dict[str, Any]] = []
-    for combined, keyword_score, vector_score, record in scored[: max(1, top_k)]:
+    for score, _doc_idx, record in scored[: max(1, top_k)]:
         results.append(
             {
                 "source_title": record.get("_source_title") or "",
                 "article_ref": record.get("_article_ref") or "",
                 "content": record.get("_content") or "",
                 "category": record.get("category") or "",
-                "score": round(combined, 4),
-                "vector_score": round(vector_score, 4),
-                "keyword_score": round(keyword_score, 4),
+                "score": round(score, 4),
             }
         )
     return results

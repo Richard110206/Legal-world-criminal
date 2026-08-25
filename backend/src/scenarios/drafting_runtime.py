@@ -75,7 +75,18 @@ def build_forced_document_prompt(
     scenario_type: str,
     document_title: str,
     end_marker: str,
+    player_mode: bool = False,
 ) -> str:
+    if player_mode:
+        return (
+            f"【法庭提示】辩护人，庭前沟通已经完成，现在请提交你的《{document_title}》。\n"
+            f"请基于本案案情、在案证据和刚才与被告人的沟通，直接撰写完整的{document_title}正文：\n"
+            f"- 第一行写“{document_title}”；\n"
+            "- 围绕被告人供述、在案证据情况，给出辩护观点（无罪/罪轻/从轻减轻情节等）并说明理由；\n"
+            "- 缺失的具体日期、金额等细节，可写“待补充”或“以在案证据核算为准”；\n"
+            f"- 正文末尾另起一行写“{end_marker}”表示定稿。\n"
+            "请直接在输入框撰写文书全文。"
+        )
     return (
         f"【系统纠偏：{scenario_type} 文书起草必须立即收口】\n"
         "你刚才和当事人的对话已经进入等待材料、保持联系或道别循环。"

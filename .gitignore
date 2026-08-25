@@ -88,3 +88,6 @@ J1Bench/
 video-remotion/
 SimLegal_paper/
 backend_image_v3_amd64.tar.gz
+frontend/tsconfig.tsbuildinfo
+frontend/.tsbuild-node/
+frontend/*.log.err

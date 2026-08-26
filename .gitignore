@@ -41,6 +41,10 @@ backend/experiment/**/outputs/
 backend/experiment/**/results/
 backend/legal_corpus/experiment/
 
+# Gold backfill intermediates (staging for manual review + dataset backup)
+dataset/backfill_staging.json
+dataset/criminal_case_dataset.json.bak
+
 # Python caches
 __pycache__/
 *.py[cod]

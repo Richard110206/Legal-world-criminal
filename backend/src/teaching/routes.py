@@ -125,6 +125,16 @@ async def get_skill_cards(student_id: str) -> dict[str, Any]:
     return {"student_id": student_id, "cards": list_skill_cards(student_id)}
 
 
+@router.get("/skill-cards/{student_id}/{slug}")
+async def get_skill_card_detail(student_id: str, slug: str) -> dict[str, Any]:
+    from .skill_card import read_skill_card
+
+    card = read_skill_card(student_id, slug)
+    if card is None:
+        raise HTTPException(status_code=404, detail="skill card not found")
+    return card
+
+
 @router.get("/corpus")
 async def corpus_status() -> dict[str, Any]:
     from . import citation_check, law_corpus

@@ -218,7 +218,7 @@ def update_skill_cards(student_id: str, event: dict[str, Any]) -> list[Path]:
 
 
 def _read_frontmatter(path: Path) -> dict[str, Any] | None:
-    """轻量解析卡片 frontmatter（只取 review_count/status_history 两个字段）。"""
+    """轻量解析卡片 frontmatter（review_count/status_history 及展示字段）。"""
     try:
         text = path.read_text(encoding="utf-8-sig")
     except OSError:
@@ -246,6 +246,8 @@ def _read_frontmatter(path: Path) -> dict[str, Any] | None:
                 for item in value.strip("[]").split(",")
                 if item.strip()
             ]
+        elif key in {"name", "description", "knowledge_point", "stage", "charge", "updated_at"}:
+            fm[key] = value
     return fm or None
 
 
@@ -277,19 +279,48 @@ def list_skill_cards(student_id: str) -> list[dict[str, Any]]:
         cards.append(
             {
                 "name": fm.get("name") or card_dir.name,
-                "knowledge_point": card_dir.name,
-                "path": str(path),
+                "description": fm.get("description", ""),
+                "knowledge_point": fm.get("knowledge_point") or card_dir.name,
+                "stage": fm.get("stage", ""),
+                "charge": fm.get("charge", ""),
+                "slug": card_dir.name,
                 "review_count": fm.get("review_count", 1),
                 "status_history": fm.get("status_history", []),
-                "updated_at": path.stat().st_mtime,
+                "updated_at": fm.get("updated_at") or datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d"),
             }
         )
     return cards
 
 
+def read_skill_card(student_id: str, slug: str) -> dict[str, Any] | None:
+    """读取单张技能卡全文（slug 为卡片目录名）。"""
+    root = student_skill_dir(student_id)
+    # slug 来自 URL 路径，拒绝任何穿越尝试
+    safe_slug = _slugify(slug)
+    card_dir = root / safe_slug
+    path = card_dir / "SKILL.md"
+    if not path.is_file():
+        return None
+    try:
+        content = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return None
+    fm = _read_frontmatter(path) or {}
+    return {
+        "name": fm.get("name") or safe_slug,
+        "description": fm.get("description", ""),
+        "knowledge_point": fm.get("knowledge_point") or safe_slug,
+        "stage": fm.get("stage", ""),
+        "slug": safe_slug,
+        "review_count": fm.get("review_count", 1),
+        "content": content,
+    }
+
+
 __all__ = [
     "update_skill_cards",
     "list_skill_cards",
+    "read_skill_card",
     "student_skill_dir",
     "SKILL_CARD_SCHEMA",
 ]

@@ -2912,6 +2912,14 @@ class ScenarioOrchestrator:
                 trace_result_path=case_output_dir / "PR_result.json",
             )
             self._save_result(case_id, "PR", result or {})
+
+            # ── 不起诉判定：检察官评估辩护意见是否足以促成不起诉 ──
+            prosecution_decision = await self._evaluate_prosecution_decision(
+                case_id=case_id,
+                prosecutor=prosecutor,
+                client_path=defendant_path or client_path,
+                pr_result=result or {},
+            )
             await self._checkpoint_stage_memories(
                 case_id=case_id,
                 stage_code="PR",
@@ -2957,6 +2965,24 @@ class ScenarioOrchestrator:
         if not scenario_succeeded:
             return
 
+        # 不起诉 → 提前结案（辩护成功）；起诉 → 正常进入 DS
+        if prosecution_decision is not None and not prosecution_decision.get("prosecute", True):
+            reason = str(prosecution_decision.get("reason") or "").strip()
+            logger.info(
+                "[Orchestrator][PR] 检察院作出不起诉决定 case=%s reason=%s", case_id, reason[:120]
+            )
+            await self.event_bus.publish(EventType.CASE_CLOSED, {
+                "case_id": case_id,
+                "client_path": defendant_path or client_path,
+                "client_id": defendant.agent_id,
+                "party_role": "defendant",
+                "participant_ids": self._collect_case_participant_ids(case_id),
+                "close_reason": "non_prosecution",
+                "defense_success": True,
+                "non_prosecution_reason": reason,
+            })
+            return
+
         await self.event_bus.publish(EventType.PROSECUTION_REVIEW_COMPLETED, {
             "case_id": case_id,
             "client_path": defendant_path or client_path,
@@ -2964,6 +2990,99 @@ class ScenarioOrchestrator:
             "lawyer_id": lawyer.agent_id,
             "party_role": "defendant",
         })
+
+    async def _evaluate_prosecution_decision(
+        self,
+        *,
+        case_id: str,
+        prosecutor: Any,
+        client_path: str,
+        pr_result: dict,
+    ) -> dict | None:
+        """检察官不起诉判定（PR 阶段收口）。
+
+        输入案情概要 + PR 对话中的辩护意见，输出 {prosecute, reason}。
+        保守设计：解析失败/异常时返回 prosecute=True（默认起诉），
+        保证主流程永不因判定失败而中断。
+        """
+        import json as _json
+        import re as _re
+
+        def _default(reason: str) -> dict:
+            logger.warning("[Orchestrator][PR] 不起诉判定降级为起诉 case=%s: %s", case_id, reason)
+            return {"prosecute": True, "reason": "判定失败，默认提起公诉"}
+
+        try:
+            _, case, _ = self._load_case_data(client_path)
+        except Exception as exc:
+            return _default(f"load case failed: {exc}")
+        info = (case or {}).get("extracted_info") or {}
+
+        dialog_history = pr_result.get("dialog_history") or []
+        defense_lines = []
+        for turn in dialog_history:
+            role = str((turn or {}).get("role") or "")
+            if role in {"defendant_lawyer", "defense_lawyer", "lawyer"}:
+                defense_lines.append(str((turn or {}).get("content") or "")[:600])
+        defense_opinion = "\n".join(defense_lines)[-3000:] or "（辩护律师未提交实质辩护意见）"
+
+        prompt = (
+            "你是审查起诉阶段的承办检察官，需要决定是否对被告人提起公诉。\n\n"
+            f"[罪名] {info.get('charge', '')}\n"
+            f"[案情概要] {str(info.get('case_background', ''))[:1500]}\n"
+            f"[量刑情节] {str(info.get('sentencing_factors', ''))[:500]}\n\n"
+            "[辩护律师在审查起诉阶段提出的辩护意见]\n"
+            f"{defense_opinion}\n\n"
+            "[判断要求]\n"
+            "依据刑诉法第177条：犯罪嫌疑人没有犯罪事实，或证据不足不符合起诉条件，"
+            "或情节显著轻微危害不大的，应作出不起诉决定。\n"
+            "只有当辩护意见确实成立（如关键证据缺失、依法不构成犯罪、情节显著轻微）"
+            "才考虑不起诉；单纯的从宽情节（坦白/赔偿/谅解）不影响起诉决定。\n"
+            "只返回 JSON：{\"prosecute\": true/false, \"reason\": \"一段话理由\"}"
+        )
+
+        try:
+            if not getattr(prosecutor, "is_active", False):
+                prosecutor.activate()
+            prosecutor.reset_memory()
+            raw = prosecutor.step(prompt)
+        except Exception as exc:
+            return _default(f"prosecutor step failed: {exc}")
+
+        text = str(raw or "").strip()
+        fenced = _re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, _re.DOTALL)
+        if fenced:
+            text = fenced.group(1)
+        start, end = text.find("{"), text.rfind("}")
+        payload = None
+        if start >= 0 and end > start:
+            try:
+                payload = _json.loads(text[start : end + 1])
+            except _json.JSONDecodeError:
+                payload = None
+        if not isinstance(payload, dict) or not isinstance(payload.get("prosecute"), bool):
+            return _default(f"unparseable response: {str(raw)[:120]}")
+        decision = {
+            "prosecute": bool(payload["prosecute"]),
+            "reason": str(payload.get("reason") or "").strip(),
+        }
+        logger.info(
+            "[Orchestrator][PR] 起诉判定 case=%s prosecute=%s",
+            case_id, decision["prosecute"],
+        )
+        # 落盘留档，供前端/教学展示
+        try:
+            case_output_dir = self._get_case_output_dir(case_id)
+            (case_output_dir / "prosecution_decision.json").write_text(
+                _json.dumps(
+                    {"case_id": case_id, "stage": "PR", **decision},
+                    ensure_ascii=False, indent=2,
+                ) + "\n",
+                encoding="utf-8",
+            )
+        except Exception as exc:
+            logger.warning("[Orchestrator][PR] 起诉判定落盘失败 case=%s: %s", case_id, exc)
+        return decision
 
     def _build_criminal_defendant_profile(self, case: dict) -> dict:
         info = case.get("extracted_info", {}) or {}

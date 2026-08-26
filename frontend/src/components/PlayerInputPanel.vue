@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useSession } from "../composables/useSession";
 import { api } from "../lib/api";
+import SkillCardPanel from "./SkillCardPanel.vue";
 
 const session = useSession();
 
@@ -10,6 +11,7 @@ const polished = ref<string | null>(null);
 const submittedOriginal = ref<string>("");
 const busy = ref<"idle" | "drafting" | "polishing" | "submitting">("idle");
 const error = ref<string | null>(null);
+const skillCardPanel = ref<InstanceType<typeof SkillCardPanel> | null>(null);
 
 const request = computed(() => session.pendingPlayerRequest.value);
 const visible = computed(() => request.value !== null);
@@ -80,8 +82,12 @@ async function handleSubmit() {
   if (!request.value || !canSubmit.value) return;
   busy.value = "submitting";
   error.value = null;
+  const skillInjection = skillCardPanel.value?.injectionText || "";
+  const message = skillInjection
+    ? `${finalMessage.value}\n\n${skillInjection}`
+    : finalMessage.value;
   try {
-    const res = await api.playerRespond(request.value.request_id, finalMessage.value, {
+    const res = await api.playerRespond(request.value.request_id, message, {
       original_message: submittedOriginal.value || undefined,
       polished_message: polished.value || undefined,
       used_ai_polish: !!polished.value,
@@ -133,6 +139,8 @@ async function handleSubmit() {
       </div>
 
       <p v-if="request.prompt" class="panel__prompt">{{ request.prompt }}</p>
+
+      <SkillCardPanel ref="skillCardPanel" />
 
       <div class="panel__editor">
         <div class="editor__toolbar" v-if="polished">

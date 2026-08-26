@@ -284,6 +284,25 @@ def build_judge_eval_prompt(
         "error_tags 列出具体错误（如法条引用混淆、遗漏构成要件、程序节点遗漏）；"
         "overall_feedback 用第二人称给学生可操作的改进建议。"
     )
+    alignment_items = transcript_json.get("citation_alignment") or []
+    if alignment_items:
+        alignment_summary = transcript_json.get("alignment_summary") or {}
+        lines.append("")
+        lines.append("【引用对齐核验（NLI 预检结果，已由系统逐句判定）】")
+        lines.append(
+            f"统计：支持 {alignment_summary.get('supports', 0)} / "
+            f"矛盾 {alignment_summary.get('contradicts', 0)} / "
+            f"无关 {alignment_summary.get('neutral', 0)}"
+        )
+        lines.append("逐条明细（verdict=supports 表示法条支持该论断；contradicts 表示法条与论断方向相反）：")
+        lines.append(json.dumps(alignment_items, ensure_ascii=False, indent=2))
+        lines.append("")
+        lines.append(
+            "该核验结果直接影响 rule_retrieval（规范检索）评分："
+            "存在 contradicts 的引用属严重错误须扣分；"
+            "大量 neutral（引而不用的凑数引用）也应酌情扣分。"
+            "若你认为某条 NLI 判定有误，可在 rationale 中说明并修正，不必盲从。"
+        )
     lines.append(SUBSUMPTION_EXTRA_PROMPT)
     return "\n".join(lines)
 

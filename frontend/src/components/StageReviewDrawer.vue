@@ -89,6 +89,19 @@ const citStatusName = (s: string) => {
       return s || "—";
   }
 };
+
+const alignmentItems = computed(() => props.event?.citation_alignment ?? []);
+const alignmentSummary = computed(() => props.event?.alignment_summary);
+const alignVerdictName = (v: string) => {
+  switch (v) {
+    case "supports":
+      return "支持";
+    case "contradicts":
+      return "矛盾";
+    default:
+      return "无关";
+  }
+};
 </script>
 
 <template>
@@ -196,6 +209,43 @@ const citStatusName = (s: string) => {
                 <p class="cit-row__ref">{{ c.citation }}</p>
                 <p v-if="c.issue" class="cit-row__issue">{{ c.issue }}</p>
                 <blockquote v-if="c.content" class="cit-row__law">{{ c.content }}</blockquote>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- 引用对齐核验（NLI） -->
+        <section v-if="alignmentItems.length" class="blk">
+          <p class="blk__label mono">CITATION ALIGNMENT · 引用对齐核验</p>
+          <p v-if="alignmentSummary" class="aln__summary mono">
+            支持 {{ alignmentSummary.supports ?? 0 }} / 矛盾 {{ alignmentSummary.contradicts ?? 0 }} /
+            无关 {{ alignmentSummary.neutral ?? 0 }}
+            <span v-if="alignmentSummary.model_layer" class="aln__dual">双层核验</span>
+          </p>
+          <ul class="alns">
+            <li
+              v-for="(a, i) in alignmentItems"
+              :key="i"
+              class="aln-row"
+              :class="{ 'aln-row--bad': a.verdict === 'contradicts' }"
+            >
+              <span
+                class="aln-row__verdict mono"
+                :class="{
+                  'v--ok': a.verdict === 'supports',
+                  'v--bad': a.verdict === 'contradicts',
+                  'v--neutral': a.verdict === 'neutral',
+                }"
+              >
+                {{ alignVerdictName(a.verdict) }}
+              </span>
+              <div class="aln-row__body">
+                <p class="aln-row__sentence">「{{ a.sentence }}」</p>
+                <p class="aln-row__ref mono">{{ a.citation }}</p>
+                <p v-if="a.reason" class="aln-row__reason">{{ a.reason }}</p>
+                <p v-if="a.layer_conflict" class="aln-row__conflict mono">
+                  ⚠ 模型层判定：{{ a.model_verdict === "supports" ? "支持" : a.model_verdict === "contradicts" ? "矛盾" : "无关" }}（两层分歧，采信裁判层）
+                </p>
               </div>
             </li>
           </ul>
@@ -504,6 +554,72 @@ const citStatusName = (s: string) => {
   line-height: 1.65;
   color: var(--parchment-muted);
 }
+
+/* 引用对齐核验（NLI） */
+.aln__summary {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  color: var(--parchment-muted);
+  letter-spacing: 0.04em;
+}
+.aln__dual {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid rgba(122, 153, 98, 0.45);
+  border-radius: 2px;
+  color: var(--accent-success);
+  font-size: 0.64rem;
+}
+.alns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.aln-row {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.aln-row--bad {
+  border-color: rgba(196, 71, 27, 0.45);
+  background: rgba(196, 71, 27, 0.05);
+}
+.aln-row__verdict {
+  flex-shrink: 0;
+  width: 44px;
+  text-align: center;
+  padding: 2px 0;
+  font-size: 0.68rem;
+  border-radius: 2px;
+  border: 1px solid;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.v--ok {
+  color: var(--accent-success);
+  border-color: rgba(122, 153, 98, 0.5);
+  background: rgba(122, 153, 98, 0.08);
+}
+.v--bad {
+  color: var(--accent);
+  border-color: rgba(196, 71, 27, 0.5);
+  background: rgba(196, 71, 27, 0.08);
+}
+.v--neutral {
+  color: var(--parchment-muted);
+  border-color: rgba(176, 138, 62, 0.4);
+  background: rgba(176, 138, 62, 0.05);
+}
+.aln-row__body { flex: 1; min-width: 0; }
+.aln-row__sentence {
+  margin: 0 0 3px;
+  font-family: "Noto Serif SC", var(--font-body);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--parchment);
+}
+.aln-row__ref { margin: 0 0 3px; font-size: 0.7rem; color: #d8bd85; }
+.aln-row__reason { margin: 0; font-size: 0.74rem; line-height: 1.55; color: var(--parchment-muted); }
+.aln-row__conflict { margin: 4px 0 0; font-size: 0.66rem; color: #d8bd85; }
 
 /* 知识缺口 */
 .gaps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }

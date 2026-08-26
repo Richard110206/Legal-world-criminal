@@ -223,6 +223,28 @@ export interface LawCitation {
   issue?: string;
 }
 
+export interface CitationAlignmentItem {
+  sentence: string;
+  citation: string;
+  title?: string;
+  article_ref?: string;
+  verdict: "supports" | "contradicts" | "neutral";
+  reason?: string;
+  layers?: string[];
+  layer_conflict?: boolean;
+  model_score?: number;
+  model_verdict?: string;
+}
+
+export interface AlignmentSummary {
+  supports?: number;
+  contradicts?: number;
+  neutral?: number;
+  total?: number;
+  model_layer?: boolean;
+  model_name?: string;
+}
+
 export interface LearningEvent {
   event_id: string;
   schema_version?: string;
@@ -236,6 +258,8 @@ export interface LearningEvent {
   knowledge_verdicts?: KnowledgeVerdict[];
   error_tags?: string[];
   law_citations?: LawCitation[];
+  citation_alignment?: CitationAlignmentItem[];
+  alignment_summary?: AlignmentSummary;
   knowledge_gaps?: string[];
   overall_feedback?: string;
   scored_at?: string;
@@ -272,4 +296,21 @@ export interface TeachingReport {
   cases_played: string[];
   recommendations: RecommendationItem[];
   updated_at?: string;
+  skill_cards?: SkillCardSummary[];
+}
+
+export interface SkillCardSummary {
+  name: string;
+  description: string;
+  knowledge_point: string;
+  stage: string;
+  charge: string;
+  slug: string;
+  review_count: number;
+  status_history: string[];
+  updated_at: string;
+}
+
+export interface SkillCardDetail extends SkillCardSummary {
+  content: string;
 }

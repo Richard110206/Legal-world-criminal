@@ -143,7 +143,12 @@ def test_transcript_and_scorer() -> None:
         scorer = TeachingScorer(judge_factory=_FakeJudge)
         event = scorer.score_stage(case_id="case_1", stage="DS", case_output_dir=case_dir, student_id="tester")
         assert event, "scorer returned None"
-        assert event["capability_scores"]["rule_retrieval"]["score"] == 0.8
+        # rule_retrieval now comes from the deterministic layer: 1 valid citation
+        # (base=10) + local NLI judges the sentence "neutral" (semantic=5)
+        # → 0.4×10 + 0.6×5 = 7
+        rr = event["capability_scores"]["rule_retrieval"]
+        assert rr["score"] == 0.7 and rr["source"] == "deterministic"
+        assert rr.get("judge_raw_score") == 8  # judge's subjective score kept for audit
         assert any(c["status"] == "valid" for c in event["law_citations"])
         assert any(c["article_ref"] == "第二百六十四条" for c in event["law_citations"])
         event_path = case_dir / "teaching" / "DS_learning_event.json"
@@ -161,6 +166,46 @@ def test_transcript_and_scorer() -> None:
         report = build_report("tester")
         assert len(report["capability_radar"]) == 8
         _ok("report: radar + gaps + recommendations")
+
+        # evidence quote verification: fake judge quoted a real utterance
+        # fragment for rule_retrieval (overridden by deterministic layer, skipped)
+        # but "要件涵摄部分展开" rationale quotes are fine; fabricated quotes
+        # must be flagged. The fake judge's fact_identification quote
+        # "识别了初犯情节" is a rationale, not in transcript — check a known
+        # fabricated one via direct call:
+        from src.teaching.scorer import TeachingScorer as _TS
+
+        cs = {
+            "subsumption": {"score": 0.6, "source": "judge", "evidence_quote": "且系初犯，建议从轻处罚"},
+            "claim_construction": {"score": 0.6, "source": "judge", "evidence_quote": "学生从未说过这句话"},
+        }
+        _TS._verify_evidence_quotes(
+            cs, ["被告人构成盗窃罪，依据《刑法》第二百六十四条，且系初犯，建议从轻处罚。"]
+        )
+        assert "unverified" not in cs["subsumption"]
+        assert cs["claim_construction"].get("unverified") is True
+        _ok("evidence quote verify: real quote passes, fabricated flagged")
+
+        # abstained capability (judge omitted) → None score, excluded from profile
+        event2 = dict(event)
+        event2["capability_scores"] = dict(event["capability_scores"])
+        event2["capability_scores"]["subsumption"] = {
+            "score": None, "raw": None, "weight": 1.0, "source": "missing",
+            "rationale": "", "evidence_quote": "",
+        }
+        profile2 = learner.update_profile("tester_abstain", event2)
+        assert "subsumption" not in profile2["capability_means"]
+        _ok("abstained capability excluded from profile (not counted as 0)")
+
+        # growth curve mean is now weighted (same caliber as radar means)
+        scores_w = {
+            code: (entry.get("score") or 0.0, entry.get("weight") or 0.5)
+            for code, entry in event["capability_scores"].items()
+            if entry.get("score") is not None
+        }
+        expected = sum(s * w for s, w in scores_w.values()) / sum(w for _s, w in scores_w.values())
+        assert any(abs(g["mean"] - round(expected, 3)) < 1e-9 for g in profile["growth_curve"])
+        _ok("growth curve mean matches weighted radar caliber")
 
 
 def main() -> int:

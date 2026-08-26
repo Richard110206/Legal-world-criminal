@@ -6,6 +6,8 @@ import type {
   PlayerAssistResponse,
   PlayerRequest,
   SandboxState,
+  SkillCardDetail,
+  SkillCardSummary,
   StatusResponse,
   TeachingReport,
 } from "./types";
@@ -168,6 +170,19 @@ export const api = {
   async teachingReport(studentId: string): Promise<TeachingReport> {
     return request<TeachingReport>(
       `/teaching/report/${encodeURIComponent(studentId)}`,
+    );
+  },
+
+  async skillCards(studentId: string): Promise<SkillCardSummary[]> {
+    const payload = await request<{ student_id: string; cards: SkillCardSummary[] }>(
+      `/teaching/skill-cards/${encodeURIComponent(studentId)}`,
+    );
+    return payload.cards ?? [];
+  },
+
+  async skillCardDetail(studentId: string, slug: string): Promise<SkillCardDetail> {
+    return request<SkillCardDetail>(
+      `/teaching/skill-cards/${encodeURIComponent(studentId)}/${encodeURIComponent(slug)}`,
     );
   },
 };

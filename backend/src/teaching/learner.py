@@ -71,6 +71,8 @@ def update_profile(student_id: str, event: dict[str, Any]) -> dict[str, Any]:
     for code, entry in (event.get("capability_scores") or {}).items():
         if not isinstance(entry, dict):
             continue
+        if entry.get("score") is None:
+            continue  # abstained (judge omitted) — never counted as 0
         score = float(entry.get("score") or 0.0)
         weight = weights.get(code, 0.5)
         weighted_sums[code] = float(weighted_sums.get(code, 0.0)) + score * weight
@@ -108,9 +110,14 @@ def update_profile(student_id: str, event: dict[str, Any]) -> dict[str, Any]:
         base = name.split("-")[0] if "-" in name else name
         error_counts[base] = int(error_counts.get(base, 0)) + 1
 
-    # growth curve + cases
-    scores = [float(e.get("score") or 0.0) for e in (event.get("capability_scores") or {}).values()]
-    mean = round(sum(scores) / len(scores), 3) if scores else 0.0
+    # growth curve + cases (weighted mean, same caliber as capability_means)
+    scored_entries = [
+        (float(e.get("score") or 0.0), float(weights.get(code, 0.5)))
+        for code, e in (event.get("capability_scores") or {}).items()
+        if isinstance(e, dict) and e.get("score") is not None
+    ]
+    weight_sum = sum(w for _s, w in scored_entries)
+    mean = round(sum(s * w for s, w in scored_entries) / weight_sum, 3) if weight_sum else 0.0
     growth = profile.setdefault("growth_curve", [])
     growth.append(
         {

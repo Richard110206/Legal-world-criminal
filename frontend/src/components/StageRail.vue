@@ -53,6 +53,13 @@ const currentStage = computed(() =>
   currentIndex.value >= 0 ? CRIMINAL_STAGES[currentIndex.value] : null,
 );
 
+/** 提前终止（非罪化终止节点被点亮）= 辩护成功 */
+const earlyTerminated = computed(
+  () =>
+    currentIndex.value >= 0 &&
+    CRIMINAL_STAGES[currentIndex.value]?.stageKind === "exit",
+);
+
 const caption = computed(() => "接待 → 侦查 → 审查起诉 → 辩护 → 一审 → 二审");
 </script>
 
@@ -67,9 +74,13 @@ const caption = computed(() => "接待 → 侦查 → 审查起诉 → 辩护 �
       <p class="rail__cat" v-if="isCriminal">刑事流程</p>
     </header>
 
-    <div v-if="currentStage" class="rail__now">
+    <div v-if="currentStage" class="rail__now" :class="{ 'rail__now--win': earlyTerminated }">
       当前位置 · <strong>{{ currentStage.code }} {{ currentStage.label }}</strong>
       <span class="rail__nowState">{{ currentStage.state }}</span>
+    </div>
+    <div v-if="earlyTerminated" class="rail__win">
+      <span class="rail__winBadge">✓ 辩护成功 · 提前结案</span>
+      <span class="rail__winNote">检察院采纳辩护意见，作出不起诉决定</span>
     </div>
 
     <ol class="rail__list">
@@ -180,6 +191,33 @@ const caption = computed(() => "接待 → 侦查 → 审查起诉 → 辩护 �
   border: 1px solid rgba(196, 71, 27, 0.45);
   border-left: 3px solid var(--accent);
   border-radius: 3px;
+}
+
+/* 辩护成功 · 提前结案 */
+.rail__now--win {
+  background: rgba(64, 145, 108, 0.10);
+  border-color: rgba(64, 145, 108, 0.5);
+  border-left-color: var(--accent-success);
+}
+.rail__win {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  background: rgba(64, 145, 108, 0.12);
+  border: 1px solid rgba(64, 145, 108, 0.55);
+  border-radius: 4px;
+}
+.rail__winBadge {
+  font-family: "Noto Serif SC", var(--font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--accent-success);
+}
+.rail__winNote {
+  font-size: 0.72rem;
+  color: var(--parchment-muted);
 }
 .rail__now strong {
   color: var(--accent);

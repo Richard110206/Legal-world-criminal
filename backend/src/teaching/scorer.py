@@ -23,7 +23,8 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-from . import citation_check, rubrics, transcript  # noqa: E402
+from . import citation_alignment, citation_check, deterministic, rubrics, transcript  # noqa: E402
+from .deterministic import merge_deterministic_score  # noqa: E402
 from .rubrics import (  # noqa: E402
     build_judge_eval_prompt,
     build_judge_system_prompt,
@@ -70,6 +71,11 @@ class TeachingScorer:
     def _judge_call(self, agent: Any, prompt: str) -> str:
         from camel.messages import BaseMessage
 
+        # camel ChatAgent.step accumulates conversation memory; agents are
+        # cached per system_prompt and reused across retries, so reset to keep
+        # each judging call independent (same defense as citation_alignment).
+        if hasattr(agent, "reset"):
+            agent.reset()
         user_message = BaseMessage.make_user_message(role_name="user", content=prompt)
         response = agent.step(user_message)
         return response.msgs[0].content
@@ -108,13 +114,24 @@ class TeachingScorer:
             if not isinstance(entry, dict):
                 entry = {}
             try:
-                score = max(0, min(10, int(entry.get("score", 0))))
+                score = max(0, min(10, int(entry.get("score"))))
             except (TypeError, ValueError):
-                score = 0
+                # judge omitted this capability → abstain (missing), NOT 0:
+                # "not judged" must never drag the learner profile down
+                scores[code] = {
+                    "score": None,
+                    "raw": None,
+                    "weight": weight,
+                    "source": "missing",
+                    "rationale": str(entry.get("rationale") or "").strip(),
+                    "evidence_quote": str(entry.get("evidence_quote") or "").strip(),
+                }
+                continue
             scores[code] = {
                 "score": round(score / 10.0, 3),
                 "raw": score,
                 "weight": weight,
+                "source": "judge",
                 "rationale": str(entry.get("rationale") or "").strip(),
                 "evidence_quote": str(entry.get("evidence_quote") or "").strip(),
             }
@@ -189,6 +206,21 @@ class TeachingScorer:
             for item in law_citations
         ]
 
+        # NLI citation-sentence alignment (dual-layer: local model + LLM judge)
+        alignment_result: dict[str, Any] = {"items": [], "summary": {}}
+        try:
+            alignment_result = citation_alignment.verify_alignment(
+                utterance_texts,
+                judge_client=self._create_judge_agent(
+                    citation_alignment.JUDGE_SYSTEM_PROMPT
+                ),
+            )
+        except Exception as exc:
+            logger.warning("[TeachingScorer] citation alignment failed (non-blocking): %s", exc)
+        if alignment_result.get("items"):
+            scoring_input["citation_alignment"] = alignment_result["items"]
+            scoring_input["alignment_summary"] = alignment_result["summary"]
+
         system_prompt = build_judge_system_prompt(stage)
         judge_prompt = build_judge_eval_prompt(
             stage,
@@ -227,6 +259,8 @@ class TeachingScorer:
             payload=payload,
             law_citations=law_citations,
             gold_incomplete=bool(scoring_input.get("gold_incomplete")),
+            alignment_result=alignment_result,
+            utterance_texts=utterance_texts,
         )
         self._persist(case_id, stage, case_output_dir, event)
 
@@ -256,10 +290,30 @@ class TeachingScorer:
         payload: dict[str, Any],
         law_citations: list[dict[str, Any]],
         gold_incomplete: bool,
+        alignment_result: dict[str, Any] | None = None,
+        utterance_texts: list[str] | None = None,
     ) -> dict[str, Any]:
         capability_scores = self._normalize_capability_scores(
             payload.get("capability_scores") or {}, stage
         )
+        self._verify_evidence_quotes(capability_scores, utterance_texts or [])
+
+        # deterministic rule_retrieval overrides the judge's subjective score
+        # when citation/NLI evidence exists (abstains on zero-valid citations)
+        det_entry = deterministic.score_rule_retrieval(law_citations, alignment_result)
+        if det_entry is not None:
+            merge_deterministic_score(capability_scores, det_entry)
+
+        # merge NLI-derived error tags (contradicted citations) with judge tags
+        error_tags = [str(tag) for tag in (payload.get("error_tags") or [])]
+        if alignment_result:
+            for tag in citation_alignment.error_tags_from_alignment(alignment_result):
+                if tag not in error_tags:
+                    error_tags.append(tag)
+
+        alignment_items = (alignment_result or {}).get("items") or []
+        alignment_summary = (alignment_result or {}).get("summary") or {}
+
         return {
             "event_id": f"evt_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{case_id}_{stage}",
             "schema_version": LEARNING_EVENT_SCHEMA,
@@ -271,8 +325,10 @@ class TeachingScorer:
             "capability_scores": capability_scores,
             "subsumption_table": payload.get("subsumption_table") or [],
             "knowledge_verdicts": payload.get("knowledge_verdicts") or [],
-            "error_tags": [str(tag) for tag in (payload.get("error_tags") or [])],
+            "error_tags": error_tags,
             "knowledge_gaps": [str(gap) for gap in (payload.get("knowledge_gaps") or [])],
+            "citation_alignment": alignment_items,
+            "alignment_summary": alignment_summary,
             "law_citations": [
                 {
                     "citation": item.get("citation"),
@@ -287,6 +343,34 @@ class TeachingScorer:
             "overall_feedback": str(payload.get("overall_feedback") or "").strip(),
             "scored_at": datetime.now().isoformat(timespec="seconds"),
         }
+
+    @staticmethod
+    def _verify_evidence_quotes(
+        capability_scores: dict[str, Any],
+        utterance_texts: list[str],
+    ) -> None:
+        """Flag judge-claimed evidence quotes that don't appear in the transcript.
+
+        LLM judges sometimes paraphrase or fabricate quotes; an unverifiable
+        quote is a signal the rationale may not be grounded. Flag only — the
+        score stands, the reader sees the caveat.
+        """
+        if not utterance_texts:
+            return
+        haystack = " ".join(utterance_texts)
+        # normalize whitespace so line breaks / duplicated spaces don't break matching
+        haystack_norm = re.sub(r"\s+", "", haystack)
+        for entry in capability_scores.values():
+            if not isinstance(entry, dict):
+                continue
+            quote = str(entry.get("evidence_quote") or "").strip()
+            if not quote:
+                continue  # no claim → nothing to verify
+            if entry.get("source") == "deterministic":
+                continue  # deterministic evidence lists citations, not quotes
+            needle = re.sub(r"\s+", "", quote)
+            if needle and needle not in haystack_norm:
+                entry["unverified"] = True
 
     @staticmethod
     def _persist(case_id: str, stage: str, case_output_dir: Path, event: dict[str, Any]) -> Path:

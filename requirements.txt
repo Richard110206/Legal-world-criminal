@@ -3,7 +3,11 @@
 # never install the deprecated PyPI package.
 
 # LLM / agent framework
-camel-ai>=0.1.5.4
+# NOTE: versions pinned for reproducible CI/Docker builds — camel 0.2.x imports
+# `FastMCP from mcp.server`, which was removed in mcp >= 1.10; bump together
+# with an import audit if you upgrade either.
+camel-ai==0.2.90
+mcp==1.28.1
 openai>=1.0.0
 
 # Document generation

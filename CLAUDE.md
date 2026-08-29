@@ -25,20 +25,38 @@ node_modules/.bin/vite dev
 # 整体验证：模块导入 + stage manifest + FSM + teaching（不启 LLM，每次改动后跑）
 cd backend && ../.venv/Scripts/python.exe scripts/verify_criminal.py
 
-# 教学模块离线功能测试（rubrics/法条库/引用核验/假裁判评分/画像/报告）
-cd backend && ../.venv/Scripts/python.exe -X utf8 scripts/test_teaching.py
+# 单元测试（pytest 离线套件：teaching/任务队列/file_io，26 用例，~5s）
+cd backend && ../.venv/Scripts/python.exe -m pytest -q
 
-# 前端类型检查 / 构建
-cd frontend && node_modules/.bin/vue-tsc --noEmit -p tsconfig.json
+# lint（ruff，规则集见根 pyproject.toml；存量债务项已带注释豁免）
+cd backend && ../.venv/Scripts/python.exe -m ruff check src ws_server.py
+
+# 前端 lint / 类型检查 / 构建
+cd frontend && npm run lint
+cd frontend && npm run typecheck
 cd frontend && node_modules/.bin/vite build
 
 # 沙箱重置（重测流程前必须做，否则 checkpoint 恢复旧状态）
 cd backend && ../.venv/Scripts/python.exe scripts/reset_sandbox.py
 ```
 
-无正式单元测试框架；`backend/scripts/` 下的脚本即验证入口。打印中文的脚本必须 `-X utf8` 或开头 `sys.stdout.reconfigure(encoding="utf-8")`（Windows GBK 控制台）。**所有新文件 UTF-8 编码写入。**
+测试框架为 **pytest**（`backend/tests/`，配置在根 `pyproject.toml`）：`conftest.py` 做环境隔离（禁 NLI 模型加载、profiles/skill-cards/scoring-db 指向 tmp），LLM 一律 Fake。`scripts/test_teaching.py` 是向后兼容 wrapper。CI 在 `.github/workflows/ci.yml`。打印中文的脚本必须 `-X utf8`（Windows GBK 控制台）。**所有新文件 UTF-8 编码写入。**
 
 ## 核心架构
+
+### API 层 `src/api/`（2026-08-30 拆分，替代 4500 行 ws_server 巨石）
+
+`ws_server.py` 仅 17 行薄入口（`from src.api import app`）。分层：**app_state**（进程单例，一律 `app_state.<name>` 访问，禁止 from-import 值拷贝）→ **runtime_issues / case_catalog / agent_status**（领域服务）→ **deps**（认证/DB/沙箱依赖）→ **player_gateway_admin / runtime_config / simulation_runtime** → **ws_endpoint + 6 组 \*_routes + lifecycle**。`create_app()` 在 `__init__.py` 组装。
+
+**循环依赖处理惯例**：① 文件底部 import（bottom-import，如 agent_status ↔ runtime_issues）；② lazy trampoline 函数（如 `_initialize_runtime_state_lazily`，用于 agent_status → simulation_runtime）；③ 使用点函数内 import（`_get_sandbox_manager` 在 deps 的两处延迟引用）。**ruff I001 自动排序会重排 import 顺序、破坏加载次序敏感的环**——改 api 包 import 后必须跑 `import ws_server` 冒烟。
+
+### 评分任务队列 `src/teaching/task_queue.py`
+
+阶段结束的异步评分不再用 daemon 线程（进程退出即丢失）：SQLite 持久化任务表（WAL）+ ThreadPoolExecutor（默认 2 worker）+ 幂等键 `case::stage::student` + 崩溃恢复（stale running → pending）+ 失败重试（默认 3 次）。监控：`GET /api/teaching/scoring-tasks`，运维：`POST /api/teaching/scoring-tasks/retry-failed`。测试注入 runner + `SIMLAW_SCORING_DB_PATH` 隔离。
+
+### 集中配置 `src/config.py`
+
+pydantic-settings 分组（Teaching/Embedding/Database/Model），`get_settings()` 带 lru_cache（测试改 env 后需 `get_settings.cache_clear()`）。消除 law_embedding 硬编码云端点。旧模块的 `os.getenv` 渐进迁移，环境变量名不变。
 
 ### 刑事流程状态机（理解一切的前提）
 
@@ -65,7 +83,8 @@ cd backend && ../.venv/Scripts/python.exe scripts/reset_sandbox.py
 ### 教学评分模块 `src/teaching/`
 
 - `rubrics.py` — 8 能力 CJ-Bench 刑法化框架唯一权威（fact_identification / rule_retrieval / subsumption★要件涵摄 / claim_construction / evidence_marshalling / evidentiary_advocacy / position_consistency / procedural_compliance）+ 阶段×能力矩阵 STAGE_CAPABILITY_MATRIX + judge 提示词
-- `scorer.py` — LLM-as-judge → LearningEvent（阶段结束异步触发，不阻塞流程）
+- `scorer.py` — LLM-as-judge → LearningEvent（阶段结束经 ScoringTaskQueue 异步触发，不阻塞流程）
+- `task_queue.py` — 评分任务持久化队列（见核心架构节）
 - `law_corpus.py` — 本地法条检索/引用核验（`backend/legal_corpus/processed/*.jsonl`：刑法 504 条 + 刑诉法 308 条，n-gram 词法 RAG，零外部依赖）
 - `learner.py` — 跨案件画像（`sandbox_data/teaching/profiles/`）；`report.py` — 雷达图/成长曲线/推荐
 - `routes.py` — `/api/teaching/*`（score / event / profile / report / corpus）

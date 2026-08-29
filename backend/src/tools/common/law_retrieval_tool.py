@@ -9,13 +9,12 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import requests
 from camel.embeddings import BaseEmbedding
 from camel.toolkits import FunctionTool
-
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ DEFAULT_EMBEDDING_MAX_ATTEMPTS = 3
 DEFAULT_EMBEDDING_LOG_BODY_LIMIT = 600
 
 _LAW_TOOL_CACHE_LOCK = Lock()
-_LAW_TOOL_CACHE: dict[tuple[str, str, int], "LawRetrievalTool"] = {}
+_LAW_TOOL_CACHE: dict[tuple[str, str, int], LawRetrievalTool] = {}
 
 
 class DashScopeMultiModalEmbedding(BaseEmbedding[str]):
@@ -222,7 +221,7 @@ def _is_retryable_embedding_error(error: Exception) -> bool:
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    with open(path, "r", encoding="utf-8") as file:
+    with open(path, encoding="utf-8") as file:
         payload = json.load(file)
     if not isinstance(payload, dict):
         raise ValueError(f"Invalid JSON object at {path}")
@@ -231,7 +230,7 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-    with open(path, "r", encoding="utf-8") as file:
+    with open(path, encoding="utf-8") as file:
         for line in file:
             text = line.strip()
             if not text:
@@ -309,7 +308,7 @@ class LawRetrievalTool:
         storage_path: str,
         collection_name: str = DEFAULT_COLLECTION_NAME,
         top_k: int = 5,
-        embedding_model: Optional[BaseEmbedding[str]] = None,
+        embedding_model: BaseEmbedding[str] | None = None,
     ) -> None:
         self.index_dir = Path(storage_path).resolve()
         self.collection_name = collection_name
@@ -404,7 +403,7 @@ class LawRetrievalTool:
             raise ValueError("Query embedding norm is zero.")
         return vector / norm
 
-    def _cache_get(self, query: str, top_k: int) -> Optional[list[dict[str, Any]]]:
+    def _cache_get(self, query: str, top_k: int) -> list[dict[str, Any]] | None:
         cache_key = (query, top_k)
         with self._query_cache_lock:
             cached = self._query_cache.get(cache_key)
@@ -424,8 +423,8 @@ class LawRetrievalTool:
     def search_laws(
         self,
         query: str,
-        top_k: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        top_k: int | None = None,
+    ) -> list[dict[str, Any]]:
         query_text = str(query or "").strip()
         if not query_text:
             raise ValueError("query must not be empty.")
@@ -458,7 +457,7 @@ class LawRetrievalTool:
         self._cache_set(query_text, k, results)
         return results
 
-    def get_database_info(self) -> Dict[str, Any]:
+    def get_database_info(self) -> dict[str, Any]:
         return {
             "storage_path": str(self.index_dir),
             "collection_name": self.collection_name,
@@ -515,7 +514,7 @@ def create_law_search_function(
     return search_laws
 
 
-def _build_search_laws_schema() -> Dict[str, Any]:
+def _build_search_laws_schema() -> dict[str, Any]:
     return {
         "type": "function",
         "function": {
@@ -545,7 +544,7 @@ def _build_search_laws_schema() -> Dict[str, Any]:
 
 
 def create_law_retrieval_tool(
-    storage_path: Optional[str] = None,
+    storage_path: str | None = None,
     collection_name: str = DEFAULT_COLLECTION_NAME,
     top_k: int = 5,
     agent: Any = None,

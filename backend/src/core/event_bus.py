@@ -6,9 +6,9 @@
 
 import asyncio
 import logging
+from collections.abc import Callable, Coroutine
 from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+from typing import Any
 
 from ..utils.case_progress import infer_case_state_from_artifacts
 
@@ -66,7 +66,7 @@ EventHandler = Callable[[dict], Coroutine[Any, Any, None]]
 class EventBus:
     """纯 asyncio 的发布-订阅事件总线。"""
 
-    _RUNTIME_ISSUE_STAGE_MAP: Dict[str, tuple[str, str]] = {
+    _RUNTIME_ISSUE_STAGE_MAP: dict[str, tuple[str, str]] = {
         str(EventType.ENTER_PLAINTIFF_CONSULTATION): ("LC", "委托洽谈"),
         str(EventType.INVESTIGATION_STARTED): ("INV", "侦查阶段"),
         str(EventType.PROSECUTION_REVIEW_STARTED): ("PR", "审查起诉阶段"),
@@ -76,14 +76,14 @@ class EventBus:
     }
 
     def __init__(self):
-        self._subscribers: Dict[str, List[tuple[int, int, EventHandler]]] = {}
+        self._subscribers: dict[str, list[tuple[int, int, EventHandler]]] = {}
         self._subscriber_order = 0
-        self._event_log: List[dict] = []
+        self._event_log: list[dict] = []
         self._closed_cases: set = set()
         self._expected_cases: int = 0
         self._all_closed_event = asyncio.Event()
         self._closed_case_event = asyncio.Event()
-        self._active_scenarios: Dict[str, dict] = {}  # 跟踪活跃场景及其参与者
+        self._active_scenarios: dict[str, dict] = {}  # 跟踪活跃场景及其参与者
         self.runtime_issue_reporter: Callable[..., Coroutine[Any, Any, bool]] | None = None
         logger.info("EventBus initialized")
 
@@ -110,7 +110,7 @@ class EventBus:
         self._subscribers[key].sort(key=lambda item: (-item[0], item[1]))
         logger.debug(f"Subscribed handler {handler.__qualname__} to {key}")
 
-    async def publish(self, event_type: str, payload: Optional[dict] = None) -> None:
+    async def publish(self, event_type: str, payload: dict | None = None) -> None:
         """向总线广播事件，所有订阅者将被异步调用。
 
         Args:
@@ -247,7 +247,7 @@ class EventBus:
             self._all_closed_event.set()
 
     def register_active_scenario(
-        self, case_id: str, scenario_type: str, participant_ids: List[str]
+        self, case_id: str, scenario_type: str, participant_ids: list[str]
     ) -> None:
         """注册活跃场景及其参与者。
 
@@ -279,7 +279,7 @@ class EventBus:
             participants.update(scenario_info["participants"])
         return participants
 
-    def restore_active_scenarios(self, scenarios_dict: Dict[str, dict]) -> None:
+    def restore_active_scenarios(self, scenarios_dict: dict[str, dict]) -> None:
         """从检查点恢复活跃场景状态。
 
         Args:
@@ -313,7 +313,7 @@ class EventBus:
                 return True
         return False
 
-    def get_agent_current_scenario(self, agent_id: str) -> Optional[dict]:
+    def get_agent_current_scenario(self, agent_id: str) -> dict | None:
         """获取 Agent 当前参与的场景信息。
 
         Args:
@@ -332,7 +332,7 @@ class EventBus:
                 }
         return None
 
-    def get_active_scenarios_snapshot(self) -> Dict[str, dict]:
+    def get_active_scenarios_snapshot(self) -> dict[str, dict]:
         """获取活跃场景的快照，用于持久化到检查点。
 
         Returns:
@@ -350,7 +350,7 @@ class EventBus:
 
     async def spin_until_all_closed(
         self,
-        timeout: Optional[float] = None,  # 保留以兼容旧代码
+        timeout: float | None = None,  # 保留以兼容旧代码
         storage_manager=None,
         agent_registry=None,
         check_interval: float = 30.0,
@@ -694,6 +694,6 @@ class EventBus:
                 )
 
     @property
-    def event_log(self) -> List[dict]:
+    def event_log(self) -> list[dict]:
         """返回事件日志副本。"""
         return list(self._event_log)

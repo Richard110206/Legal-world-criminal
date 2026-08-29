@@ -5,9 +5,8 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .base_agent import BaseAgent
 from ..pipeline.stage_tool_resolver import build_agent_default_tools
 from ..tools.common import normalize_skill_dirs
 from ..utils.live_card_memory import (
@@ -18,10 +17,10 @@ from ..utils.live_card_memory import (
     load_memory_for_agent,
     normalize_memory_payload,
 )
+from .base_agent import BaseAgent
 
 if TYPE_CHECKING:
-    from ..core.event_bus import EventBus
-    from ..core.file_storage_manager import FileStorageManager
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ CLIENT_MEMORY_NO_UPDATE = "CLIENT_MEMORY_NO_UPDATE"
 CLIENT_MEMORY_SAVE_DONE = "CLIENT_MEMORY_SAVE_DONE"
 
 
-def _normalize_memory_path(path: Optional[str]) -> Optional[str]:
+def _normalize_memory_path(path: str | None) -> str | None:
     raw = str(path or "").strip()
     if not raw:
         return None
@@ -46,14 +45,14 @@ def _normalize_memory_path(path: Optional[str]) -> Optional[str]:
 
 
 def _build_default_client_tools(
-    agent: "ClientAgent",
-    provided_tools: Optional[list[Any]] = None,
+    agent: ClientAgent,
+    provided_tools: list[Any] | None = None,
 ) -> list[Any]:
     """Build the default toolset for client agents."""
     return build_agent_default_tools("client", agent, provided_tools=provided_tools)
 
 
-def _resolve_client_config_dir(config_path: Any) -> Optional[Path]:
+def _resolve_client_config_dir(config_path: Any) -> Path | None:
     raw = str(config_path or "").strip()
     if not raw:
         return None
@@ -93,12 +92,12 @@ class ClientAgent(BaseAgent):
         speaking_style: str = "",
         interaction_guidelines: str = "",
         role: str = "plaintiff",
-        legal_persona_profile: Optional[Dict[str, str]] = None,
+        legal_persona_profile: dict[str, str] | None = None,
         system_prompt: str = "",
-        scenario_type: Optional[str] = None,
-        scenario_data: Optional[Dict[str, Any]] = None,
-        work_memory_path: Optional[str] = None,
-        long_term_memory_path: Optional[str] = None,
+        scenario_type: str | None = None,
+        scenario_data: dict[str, Any] | None = None,
+        work_memory_path: str | None = None,
+        long_term_memory_path: str | None = None,
         **kwargs: Any,
     ) -> None:
         config_path = kwargs.get("config_path")
@@ -159,7 +158,7 @@ class ClientAgent(BaseAgent):
         self.long_term_memory_path = long_term_memory_path
         self.memory_yaml_path = _normalize_memory_path(long_term_memory_path)
 
-        self.client_profile: Dict[str, Any] = get_empty_memory_payload(CLIENT_MEMORY_OWNER)
+        self.client_profile: dict[str, Any] = get_empty_memory_payload(CLIENT_MEMORY_OWNER)
 
         if scenario_type and not system_prompt:
             system_prompt = self._build_pipeline_prompt()
@@ -247,7 +246,7 @@ class ClientAgent(BaseAgent):
                 f"Agent '{self.name}' 缺少 memory tool: {missing}"
             )
 
-    def _last_memory_tool_failure(self) -> Optional[str]:
+    def _last_memory_tool_failure(self) -> str | None:
         for record in reversed(list(self._last_tool_call_records or [])):
             if isinstance(record, dict):
                 record_tool_name = str(
@@ -282,7 +281,7 @@ class ClientAgent(BaseAgent):
                 return True
         return False
 
-    def _request_client_memory_checkpoint(self) -> Dict[str, Any]:
+    def _request_client_memory_checkpoint(self) -> dict[str, Any]:
         self._require_active_chat_agent()
         self._require_memory_tools_loaded()
         prompt = (
@@ -308,9 +307,9 @@ class ClientAgent(BaseAgent):
 
     def extract_and_save_long_term_memory(
         self,
-        filepath: Optional[str] = None,
+        filepath: str | None = None,
         raise_on_error: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Checkpoint helper: let the active agent decide whether to update memory.yaml."""
         try:
             if filepath:

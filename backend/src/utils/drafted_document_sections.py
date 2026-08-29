@@ -7,7 +7,8 @@ previous stage rather than falling back to dataset ground truth.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 def _normalize_document_text(document: str) -> str:

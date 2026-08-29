@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .models import ResponseAssist
-
 
 HINT_LABELS = {
     "liability_scope": "解释责任和赔偿范围",

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import yaml
 
@@ -14,7 +15,6 @@ from .stage_tool_registry import (
     create_registered_stage_tool,
     get_registered_stage_tool_ids,
 )
-
 
 logger = logging.getLogger(__name__)
 

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
-
+from collections.abc import Iterable
+from typing import Any
 
 _PROMPT_EXCLUDED_STAGES = {
 }

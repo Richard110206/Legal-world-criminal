@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class PlayerRequestStatus(str, Enum):
@@ -42,7 +42,7 @@ class PlayerLawyerRequest:
     status: PlayerRequestStatus = PlayerRequestStatus.PENDING
     message: str = ""        # player's submitted text (filled on resolve)
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    resolved_at: Optional[str] = None
+    resolved_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,7 +78,7 @@ class DocumentDraft:
     finish_reason: str = ""   # "player_confirmed" after confirmation
     pdf_path: str = ""
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    confirmed_at: Optional[str] = None
+    confirmed_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -117,7 +117,7 @@ class ResponseAssist:
     final_submitted_message: str = ""
     used_ai_polish: bool = False
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: Optional[str] = None
+    updated_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {

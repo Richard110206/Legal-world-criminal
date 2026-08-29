@@ -234,12 +234,12 @@ def load_gold(case_id: str, stage: str) -> dict[str, Any]:
     info = record.get("extracted_info") or {}
     gold: dict[str, Any] = {}
     missing = []
-    for field in GOLD_STAGE_FIELDS.get(stage, []):
-        value = info.get(field)
+    for gold_field in GOLD_STAGE_FIELDS.get(stage, []):
+        value = info.get(gold_field)
         if value is None or (isinstance(value, str) and not value.strip()):
-            missing.append(field)
+            missing.append(gold_field)
             continue
-        gold[field] = value
+        gold[gold_field] = value
 
     gold["case_cause"] = str(info.get("case_cause") or info.get("charge") or "")
     gold["charge"] = str(info.get("charge") or info.get("case_cause") or "")

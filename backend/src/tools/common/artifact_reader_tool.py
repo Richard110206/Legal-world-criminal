@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from camel.toolkits import FunctionTool
 
 from src.utils.file_io import safe_read_json
-
 
 _READABLE_SUFFIXES = {".json", ".md", ".txt"}
 _ARTIFACT_DESCRIPTION_MAP = {
@@ -42,7 +41,7 @@ def _normalize_rel_path(rel_path: str) -> str:
     return "/".join(parts)
 
 
-def _extract_field_value(payload: Any, field: Optional[str]) -> Any:
+def _extract_field_value(payload: Any, field: str | None) -> Any:
     if not field:
         return payload
 
@@ -205,7 +204,7 @@ class ArtifactReader:
     def get_tool(self) -> FunctionTool:
         return self._build_tool()
 
-    def read_case_artifact(self, rel_path: str, field: Optional[str] = None) -> str:
+    def read_case_artifact(self, rel_path: str, field: str | None = None) -> str:
         """Read one whitelisted artifact under the current case directory."""
         try:
             normalized = _normalize_rel_path(rel_path)

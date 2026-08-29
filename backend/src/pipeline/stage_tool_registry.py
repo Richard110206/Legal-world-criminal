@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from camel.toolkits import FunctionTool
 
@@ -10,24 +11,23 @@ from ..tools import (
     create_artifact_reader_tool,
     create_case_retrieval_tool,
     create_citation_check_tool,
+    create_defense_opinion_drafting_tool,
     create_document_compare_tool,
+    create_first_instance_criminal_judgment_drafting_tool,
+    # 刑事
+    create_indictment_drafting_tool,
     create_law_retrieval_tool,
     create_load_client_memory_tool,
     create_load_lawyer_memory_tool,
+    create_public_prosecution_drafting_tool,
     create_save_client_memory_tool,
     create_save_lawyer_memory_tool,
+    create_second_instance_criminal_judgment_drafting_tool,
     # 元典法条/案例检索
     create_yuandian_case_tool,
     create_yuandian_law_detail_tool,
     create_yuandian_law_tool,
-    # 刑事
-    create_indictment_drafting_tool,
-    create_defense_opinion_drafting_tool,
-    create_public_prosecution_drafting_tool,
-    create_first_instance_criminal_judgment_drafting_tool,
-    create_second_instance_criminal_judgment_drafting_tool,
 )
-
 
 ToolFactory = Callable[[Any], FunctionTool]
 

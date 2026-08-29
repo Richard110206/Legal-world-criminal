@@ -13,15 +13,15 @@ import contextlib
 import json
 import logging
 import os
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from fastapi import WebSocket
 
-from .backend_pathfinder import BackendPathfinder
-from .map_engine import TownAvatarInterface
-from .location_registry import LocationRegistry
 from . import ws_protocol as proto
+from .backend_pathfinder import BackendPathfinder
+from .location_registry import LocationRegistry
+from .map_engine import TownAvatarInterface
 
 logger = logging.getLogger(__name__)
 
@@ -425,7 +425,7 @@ class WebSocketFrontendEngine(TownAvatarInterface):
                 try:
                     await asyncio.wait_for(gate_event.wait(), timeout=wait_timeout)
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     if auto_remaining is not None and not self._paused:
                         auto_remaining -= wait_timeout
                     continue
@@ -500,7 +500,7 @@ class WebSocketFrontendEngine(TownAvatarInterface):
             try:
                 await asyncio.wait_for(event.wait(), timeout=1.0)
                 return True
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 if not self._paused:
                     elapsed += 1.0
         return False
@@ -942,11 +942,11 @@ class WebSocketFrontendEngine(TownAvatarInterface):
         """将单个 Agent 的地图状态保存到其 config.yaml 中。"""
         if not self.agent_registry or not self.storage:
             return
-            
+
         agent = self.agent_registry.get_agent(agent_id)
         if not agent or not getattr(agent, "config_path", None):
             return
-            
+
         state = self._agent_states.get(agent_id)
         # 如果 state 为 None (比如刚 despawn)，我们可以清理掉 map_state 字段
         self.storage.update_agent_field(agent.config_path, "map_state", state)
@@ -955,12 +955,12 @@ class WebSocketFrontendEngine(TownAvatarInterface):
         """从所有 Agent 的 config.yaml 恢复前端状态。"""
         if not self.agent_registry or not self.storage:
             return
-            
+
         restored_count = 0
         for agent in self.agent_registry.get_all_agents():
             if not getattr(agent, "config_path", None):
                 continue
-                
+
             try:
                 config = self.storage.load_agent_config(agent.config_path)
                 map_state = config.get("map_state")
@@ -975,5 +975,5 @@ class WebSocketFrontendEngine(TownAvatarInterface):
                     restored_count += 1
             except Exception as e:
                 logger.warning(f"Failed to restore state for {agent.agent_id}: {e}")
-                
+
         logger.info(f"Restored {restored_count} agents from config files")

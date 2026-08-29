@@ -3,19 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from camel.toolkits import FunctionTool
 
 from .defense_opinion_drafting_tool import (
     DEFENSE_OPINION_DOCUMENT_TYPE,
-    DEFENSE_OPINION_TOOL_NAME,
     DEFENSE_OPINION_RESULT_FIELD,
+    DEFENSE_OPINION_TOOL_NAME,
     DefenseOpinionDraftingTool,
     create_defense_opinion_drafting_tool,
 )
 from .document_drafting_support import extract_json_payload
-
 
 SCENARIO_TO_DOCUMENT_TYPE = {
     "DS": DEFENSE_OPINION_DOCUMENT_TYPE,
@@ -68,7 +67,7 @@ def normalize_document_drafting_payload(
     payload: Any,
     *,
     document_type: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     normalized_document_type = normalize_document_drafting_type(document_type)
     source = payload if isinstance(payload, dict) else {}
     normalized_from_payload = normalize_document_drafting_type(
@@ -85,7 +84,7 @@ def extract_document_drafting_tool_payload(
     records: list[Any],
     *,
     document_type: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     tool_name = get_document_drafting_tool_name(document_type)
 
     for record in reversed(list(records or [])):
@@ -130,7 +129,7 @@ def render_document_drafting_payload(
     *,
     document_type: str,
     document_text: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     normalized_document_type = normalize_document_drafting_type(document_type)
     raw_result = DOCUMENT_TYPE_TO_RENDERER[normalized_document_type](agent, str(document_text or ""))
     payload = extract_json_payload(raw_result)
@@ -145,7 +144,7 @@ def render_document_drafting_payload_for_output_dir(
     document_type: str,
     document_text: str,
     case_output_dir: str | Path,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Render a drafting payload without requiring a live AI lawyer agent."""
 
     class _RenderAgent:

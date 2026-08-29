@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .run_ledger import PlayerRunLedger
-
 
 EVALUATION_DIMENSIONS = (
     ("事实把握", 25),

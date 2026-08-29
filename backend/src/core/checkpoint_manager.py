@@ -5,10 +5,11 @@ Handles session state, scenario checkpoints, and recovery logic.
 """
 
 import logging
-import yaml
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ class CheckpointManager:
         self.checkpoint_dir = Path(checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.session_state_file = self.checkpoint_dir / "session_state.yaml"
-        self._session_state: Optional[Dict[str, Any]] = None
-        self._event_bus: Optional[Any] = None  # Reference to EventBus for syncing
+        self._session_state: dict[str, Any] | None = None
+        self._event_bus: Any | None = None  # Reference to EventBus for syncing
 
     def create_new_session(self) -> str:
         """Create a new simulation session.
@@ -46,7 +47,7 @@ class CheckpointManager:
         logger.info(f"Created new session: {session_id}")
         return session_id
 
-    def load_session_state(self) -> Optional[Dict[str, Any]]:
+    def load_session_state(self) -> dict[str, Any] | None:
         """Load session state from disk.
 
         Returns:
@@ -56,7 +57,7 @@ class CheckpointManager:
             return None
 
         try:
-            with open(self.session_state_file, 'r', encoding='utf-8') as f:
+            with open(self.session_state_file, encoding='utf-8') as f:
                 self._session_state = yaml.safe_load(f)
             logger.info(f"Loaded session state: {self._session_state.get('session_id')}")
             return self._session_state
@@ -142,7 +143,7 @@ class CheckpointManager:
     def save_scenario_checkpoint(
         self,
         scenario_id: str,
-        checkpoint_data: Dict[str, Any],
+        checkpoint_data: dict[str, Any],
     ) -> None:
         """Save scenario checkpoint to disk.
 
@@ -173,7 +174,7 @@ class CheckpointManager:
         except Exception as e:
             logger.error(f"Failed to save checkpoint {checkpoint_file}: {e}")
 
-    def load_scenario_checkpoint(self, checkpoint_file: str) -> Optional[Dict[str, Any]]:
+    def load_scenario_checkpoint(self, checkpoint_file: str) -> dict[str, Any] | None:
         """Load scenario checkpoint from disk.
 
         Args:
@@ -189,7 +190,7 @@ class CheckpointManager:
             return None
 
         try:
-            with open(checkpoint_path, 'r', encoding='utf-8') as f:
+            with open(checkpoint_path, encoding='utf-8') as f:
                 data = yaml.safe_load(f)
             logger.info(f"Loaded checkpoint: {checkpoint_file}")
             return data
@@ -197,7 +198,7 @@ class CheckpointManager:
             logger.error(f"Failed to load checkpoint {checkpoint_file}: {e}")
             return None
 
-    def get_incomplete_scenarios(self) -> List[Dict[str, Any]]:
+    def get_incomplete_scenarios(self) -> list[dict[str, Any]]:
         """Get list of incomplete scenarios from session state.
 
         Returns:

@@ -22,9 +22,9 @@ import logging
 import os
 import threading
 import time
-import urllib.request
 import urllib.error
-from typing import Any, Optional
+import urllib.request
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +76,9 @@ class YuandianMCPClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         base_url: str = DEFAULT_BASE_URL,
-        timeout: Optional[int] = None,
+        timeout: int | None = None,
     ) -> None:
         self.api_key = str(api_key or "").strip() or _resolve_api_key()
         self.base_url = str(base_url or DEFAULT_BASE_URL).rstrip("/")
@@ -102,7 +102,7 @@ class YuandianMCPClient:
         req.add_header("Authorization", f"Bearer {self.api_key}")
         req.add_header("Content-Type", "application/json")
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for attempt in range(DEFAULT_MAX_ATTEMPTS):
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
@@ -192,7 +192,7 @@ class YuandianMCPClient:
         self,
         query: str,
         return_num: int = 5,
-        fatiao_filter: Optional[dict[str, Any]] = None,
+        fatiao_filter: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """法条语义检索（自然语言 query）。"""
         arguments: dict[str, Any] = {"query": str(query or ""), "return_num": int(return_num or 5)}
@@ -327,7 +327,7 @@ class YuandianMCPClient:
         return payload
 
 
-_shared_client: Optional[YuandianMCPClient] = None
+_shared_client: YuandianMCPClient | None = None
 _shared_client_lock = threading.Lock()
 
 

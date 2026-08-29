@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
-from .legal_persona import build_legal_persona_prompt
 from ..utils.live_card_memory import build_memory_prompt_block
+from .legal_persona import build_legal_persona_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class PromptAssembler:
     """Assemble profile and scenario prompt into one system prompt."""
 
     @staticmethod
-    def _normalize_party_type(profile: Dict[str, Any]) -> str:
+    def _normalize_party_type(profile: dict[str, Any]) -> str:
         raw_value = str(
             profile.get("party_type", "")
             or profile.get("type", "")
@@ -30,9 +30,9 @@ class PromptAssembler:
 
     @staticmethod
     def build(
-        profile: Dict[str, Any],
-        long_term_memory: Optional[Any] = None,
-        memory_owner: Optional[str] = None,
+        profile: dict[str, Any],
+        long_term_memory: Any | None = None,
+        memory_owner: str | None = None,
         scenario_prompt: str = "",
         **_ignored: Any,
     ) -> str:
@@ -57,7 +57,7 @@ class PromptAssembler:
         return "\n\n".join(parts)
 
     @staticmethod
-    def _build_profile_section(profile: Dict[str, Any]) -> str:
+    def _build_profile_section(profile: dict[str, Any]) -> str:
         if not profile:
             return ""
 
@@ -132,7 +132,7 @@ class PromptAssembler:
         return "\n".join(lines)
 
     @staticmethod
-    def render_template(template: str, data: Dict[str, Any]) -> str:
+    def render_template(template: str, data: dict[str, Any]) -> str:
         def _replace(match: re.Match[str]) -> str:
             key = match.group(1)
             value = data.get(key, "")
@@ -146,9 +146,9 @@ class PromptAssembler:
     def build_scenario_prompt(
         agent_type: str,
         scenario_type: str,
-        scenario_data: Dict[str, Any],
-        court_role: Optional[str] = None,
-        template_key: Optional[str] = None,
+        scenario_data: dict[str, Any],
+        court_role: str | None = None,
+        template_key: str | None = None,
     ) -> str:
         from .scenario_templates import SCENARIO_TEMPLATES
 

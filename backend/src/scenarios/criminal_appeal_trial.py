@@ -12,14 +12,14 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from .criminal_trial import CriminalTrialScenario
 from ..tools.legal import (
     extract_judgment_document_tool_payload,
     get_judgment_document_type_for_scenario,
     render_judgment_document_payload,
 )
+from .criminal_trial import CriminalTrialScenario
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class CriminalAppealTrialScenario(CriminalTrialScenario):
         judge_agent: Any,
         prosecutor_agent: Any,
         appellant_agent: Any,
-        defense_lawyer_agent: Optional[Any] = None,
+        defense_lawyer_agent: Any | None = None,
         first_verdict_summary: str = "",
         first_court_opinion: str = "",
         **kwargs,
@@ -60,7 +60,7 @@ class CriminalAppealTrialScenario(CriminalTrialScenario):
     def _execute_court_investigation(self) -> None:
         self.current_stage = "法庭调查"
         has_defense = "defense_lawyer" in self.agents
-        target_labels: Dict[str, str] = {"公诉人": "prosecutor"}
+        target_labels: dict[str, str] = {"公诉人": "prosecutor"}
         if has_defense:
             target_labels["辩护人"] = "defense_lawyer"
 
@@ -89,7 +89,7 @@ class CriminalAppealTrialScenario(CriminalTrialScenario):
     def _execute_court_debate(self) -> None:
         self.current_stage = "法庭辩论"
         has_defense = "defense_lawyer" in self.agents
-        target_labels: Dict[str, str] = {"公诉人": "prosecutor"}
+        target_labels: dict[str, str] = {"公诉人": "prosecutor"}
         if has_defense:
             target_labels["辩护人"] = "defense_lawyer"
 
@@ -105,6 +105,7 @@ class CriminalAppealTrialScenario(CriminalTrialScenario):
             end_token="【结束庭审辩论】",
             stage_goal="围绕一审裁判是否存在错误（事实、法律、量刑）及二审处理方式展开。",
             force_close_instruction="请收束庭审辩论，宣布辩论终结。",
+            enable_challenges=True,
         )
         self.stage_results["debate"] = results
 
@@ -169,7 +170,7 @@ class CriminalAppealTrialScenario(CriminalTrialScenario):
         except Exception as exc:
             logger.warning("[CRA] Failed to backfill second-instance criminal judgment PDF: %s", exc)
 
-    def _save_result(self, result: Dict[str, Any]) -> None:
+    def _save_result(self, result: dict[str, Any]) -> None:
         Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)

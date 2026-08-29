@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
@@ -47,7 +47,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_access_token(*, user_id: str, token_version: int) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "user_id": user_id,
         "token_version": token_version,
@@ -58,7 +58,7 @@ def create_access_token(*, user_id: str, token_version: int) -> str:
 
 
 def get_access_token_expires_at() -> datetime:
-    return datetime.now(timezone.utc) + timedelta(minutes=get_jwt_expiry_minutes())
+    return datetime.now(UTC) + timedelta(minutes=get_jwt_expiry_minutes())
 
 
 def decode_access_token(token: str) -> dict[str, Any]:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Deterministic capability scoring — replace LLM subjectivity where evidence exists.
 
 `rule_retrieval`（规范检索）是客观能力：引用存不存在（citation_check 层）、

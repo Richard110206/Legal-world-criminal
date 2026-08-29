@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 
-
 PROMPT_PROFILE_ENV = "SIMLAW_PROMPT_PROFILE"
 PROMPT_PROFILE_PROD = "prod"
 PROMPT_PROFILE_TEST = "test"

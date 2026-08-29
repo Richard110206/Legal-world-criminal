@@ -10,7 +10,6 @@ from typing import Any
 
 from camel.toolkits import FunctionTool
 
-
 CITATION_CHECK_TOOL_NAME = "check_citations"
 DEFAULT_LEGAL_CORPUS_DIR = Path(__file__).resolve().parents[3] / "legal_corpus" / "processed"
 ARTICLE_REF_RE = (

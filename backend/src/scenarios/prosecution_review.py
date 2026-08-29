@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +46,12 @@ class ProsecutionReviewScenario:
         lawyer_agent,
         prosecutor_agent=None,
         defendant_agent=None,
-        max_turns: Optional[int] = None,
-        output_path: Optional[str] = None,
+        max_turns: int | None = None,
+        output_path: str | None = None,
         verbose: bool = False,
         **kwargs,
     ):
-        self.agents: Dict[str, Any] = {
+        self.agents: dict[str, Any] = {
             "lawyer": lawyer_agent,
         }
         if prosecutor_agent is not None:
@@ -66,13 +66,13 @@ class ProsecutionReviewScenario:
         self.verbose = verbose
 
         # 阶段状态
-        self.dialog_history: list[Dict[str, Any]] = []
+        self.dialog_history: list[dict[str, Any]] = []
         self.turn_count = 0
         self.completed = False
         self.finish_reason = "max_turns"
 
         # 产出
-        self.review_findings: Dict[str, Any] = {}
+        self.review_findings: dict[str, Any] = {}
         self.defense_strategy: str = ""
         self.indictment_received: bool = False
 
@@ -96,7 +96,7 @@ class ProsecutionReviewScenario:
         }
         self.dialog_history.append(entry)
 
-    def execute(self) -> Dict[str, Any]:
+    def execute(self) -> dict[str, Any]:
         """执行审查起诉阶段场景。"""
         lawyer = self.agents["lawyer"]
         prosecutor = self.agents.get("prosecutor")
@@ -161,7 +161,7 @@ class ProsecutionReviewScenario:
             self._save_result(result)
         return result
 
-    def _build_result(self) -> Dict[str, Any]:
+    def _build_result(self) -> dict[str, Any]:
         return {
             "scenario_type": self.scenario_type,
             "dialog_history": self.dialog_history,
@@ -172,7 +172,7 @@ class ProsecutionReviewScenario:
             "defense_strategy": self.defense_strategy,
         }
 
-    def _save_result(self, result: Dict[str, Any]) -> None:
+    def _save_result(self, result: dict[str, Any]) -> None:
         if not self.output_path:
             return
         Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -180,7 +180,7 @@ class ProsecutionReviewScenario:
             json.dump(result, file, ensure_ascii=False, indent=2)
         self._log(f"结果已保存到 {self.output_path}")
 
-    def _build_checkpoint_data(self) -> Dict[str, Any]:
+    def _build_checkpoint_data(self) -> dict[str, Any]:
         return {
             "scenario_type": self.scenario_type,
             "dialog_history": self.dialog_history,
@@ -191,7 +191,7 @@ class ProsecutionReviewScenario:
             "finish_reason": self.finish_reason,
         }
 
-    async def resume_from_checkpoint(self, checkpoint_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def resume_from_checkpoint(self, checkpoint_data: dict[str, Any]) -> dict[str, Any]:
         self.dialog_history = checkpoint_data.get("dialog_history", [])
         self.turn_count = checkpoint_data.get("turn_count", 0)
         self.completed = checkpoint_data.get("completed", False)

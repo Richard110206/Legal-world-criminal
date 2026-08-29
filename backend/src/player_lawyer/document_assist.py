@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .models import DocumentDraft
 from .storage import PlayerLawyerStorage
-
 
 DEFENSE_OPINION_SKILL_ID = "lawyer-defense-opinion-drafting"
 
@@ -73,9 +73,7 @@ def _strip_code_fences(text: str) -> str:
         lowered = inner.lower()
         if lowered.startswith("markdown"):
             inner = inner[8:].strip()
-        elif lowered.startswith("text"):
-            inner = inner[4:].strip()
-        elif lowered.startswith("json"):
+        elif lowered.startswith("text") or lowered.startswith("json"):
             inner = inner[4:].strip()
         return inner.strip()
     return raw

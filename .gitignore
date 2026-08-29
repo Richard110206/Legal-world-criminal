@@ -29,9 +29,11 @@ dataset_builder/**/run_summary.txt
 law_vector_index_manifest.json
 law_embeddings.float16.npy
 law_metadata.jsonl
+law_embeddings.manifest.json
 backend/**/law_vector_index_manifest.json
 backend/**/law_embeddings.float16.npy
 backend/**/law_metadata.jsonl
+backend/**/law_embeddings.manifest.json
 
 # Experiment run outputs
 backend/experiment/**/runs/

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 RESPONSIBILITY_STAGES = {"LC", "INV", "PR", "DS", "CR", "CRA"}
 RESPONSIBILITY_ROLES_BY_STAGE = {
     "LC": {"lawyer", "defendant_lawyer"},

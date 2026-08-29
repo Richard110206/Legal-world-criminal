@@ -18,7 +18,6 @@ from ...utils.live_card_memory import (
     update_agent_memory_cache,
 )
 
-
 LOAD_LAWYER_MEMORY_DESCRIPTION = "读取当前案件下律师的 memory.yaml，返回完整 YAML。"
 
 

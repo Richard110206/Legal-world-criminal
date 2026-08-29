@@ -38,12 +38,8 @@ export const CRIMINAL_STAGES: StageInfo[] = [
 
 export type CaseCategory = "criminal";
 
-export function displayState(state: string | undefined | null, category?: CaseCategory | null): string {
+export function displayState(state: string | undefined | null, _category?: CaseCategory | null): string {
   return state ?? "";
-}
-
-function stagesForCategory(category: CaseCategory | null | undefined): StageInfo[] {
-  return CRIMINAL_STAGES;
 }
 
 const CRIMINAL_STAGE_INDEX = new Map(CRIMINAL_STAGES.map((s, i) => [s.state, i]));
@@ -89,7 +85,7 @@ const POST_EXIT_CODES = new Set(["05", "06", "07", "08", "09", "10", "11", "12",
 
 export function stageIndexOf(
   state: string | undefined | null,
-  category: CaseCategory | null | undefined = "criminal",
+  _category: CaseCategory | null | undefined = "criminal",
 ): number {
   if (!state) return -1;
   const indices: number[] = [];

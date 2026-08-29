@@ -171,6 +171,15 @@ teaching/
 
 ## 五、关键技术决策
 
+### 工程化基建（2026-08-30 重构，全部验证通过后落地）
+
+1. **API 层模块化**：原 4536 行 `ws_server.py` 巨石拆为 `src/api/` 17 个模块（app_state 进程单例 / deps 依赖 / 6 组路由 / ws_endpoint / lifecycle / 领域服务），`ws_server.py` 保留 17 行薄入口，`uvicorn ws_server:app` 契约不变。循环依赖三招：bottom-import、lazy trampoline、使用点延迟 import——ruff I001 会重排 import 破坏加载次序，改 api 包后必须 `import ws_server` 冒烟
+2. **评分任务队列**：daemon 线程（进程退出即丢）→ `teaching/task_queue.py`（SQLite WAL 持久化 + 2 worker 线程池 + 幂等键 + 崩溃恢复 + 3 次重试），`GET /api/teaching/scoring-tasks` 监控、`POST .../retry-failed` 运维
+3. **pytest 正规化**：`backend/tests/`（conftest 全隔离：NLI 禁载、目录指向 tmp、FakeJudge），26 用例 ~5s；`scripts/test_teaching.py` 转 wrapper
+4. **lint/CI**：根 `pyproject.toml`（ruff 规则集 + pytest 配置 + per-file-ignores），`.github/workflows/ci.yml`：ruff → 装配冒烟（≥50 路由）→ pytest → verify_criminal → vue-tsc + build。存量债务（F811 双定义等）带注释豁免，待专项清理
+5. **集中配置**：`src/config.py` pydantic-settings 分组，`get_settings().cache_clear()` 于测试；`law_embedding` 硬编码端点已移除
+6. **依赖治理**：删除 PyPI 废弃包 `pathlib`（会污染环境），requirements 修 UTF-8；前端加 ESLint 9 flat config
+
 ### 评分可靠性（已落地）
 
 1. **rule_retrieval 确定化**：条号核验 + NLI 对齐是可计算证据，公式分取代 LLM 自由裁量；judge 分保留做交叉核验，偏差 ≥2 分自动标注
@@ -223,19 +232,28 @@ teaching/
 ## 八、常用验证命令
 
 ```bash
-# 后端整体验证（模块导入 + manifest + FSM + teaching）
-cd backend && ../.venv/Scripts/python.exe scripts/verify_criminal.py
+# 后端 lint（ruff，配置见根目录 pyproject.toml）
+cd backend && ../.venv/Scripts/python.exe -m ruff check src ws_server.py
 
-# 教学模块离线测试（rubrics/法条库/引用核验/假裁判评分/画像/报告）
+# 后端测试（pytest：teaching 离线套件 + 任务队列 + file_io，26 个用例）
+cd backend && ../.venv/Scripts/python.exe -m pytest -q
+
+# 后端整体验证（模块导入 + manifest + FSM + teaching）
+cd backend && ../.venv/Scripts/python.exe -X utf8 scripts/verify_criminal.py
+
+# 教学模块旧入口（转发到 pytest，向后兼容）
 cd backend && ../.venv/Scripts/python.exe -X utf8 scripts/test_teaching.py
 
 # 金标准回填（缺字段时）
 cd backend && ../.venv/Scripts/python.exe -X utf8 scripts/backfill_gold.py [--limit N | --apply]
 
-# 前端类型检查 + 构建
-cd frontend && node_modules/.bin/vue-tsc --noEmit -p tsconfig.json
-cd frontend && node_modules/.bin/vite build
+# 前端 lint + 类型检查 + 构建
+cd frontend && npm run lint
+cd frontend && npm run typecheck
+cd frontend && npm run build
 ```
+
+CI（`.github/workflows/ci.yml`）在 push/PR 时自动执行：ruff → 应用装配冒烟（55 路由）→ pytest → verify_criminal → 前端 vue-tsc + vite build。
 
 ---
 

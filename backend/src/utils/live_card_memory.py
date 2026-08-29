@@ -7,12 +7,11 @@ import logging
 import re
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import yaml
-
 
 logger = logging.getLogger(__name__)
 
@@ -318,15 +317,11 @@ def _repair_common_multiline_yaml_omissions(
             repaired.append(line)
             continue
 
-        if not normalized_rest:
-            should_open_multiline = True
-        elif next_parsed is None:
+        if not normalized_rest or next_parsed is None:
             should_open_multiline = True
         else:
             next_indent, next_key, _next_rest = next_parsed
-            if next_indent > indent:
-                should_open_multiline = True
-            elif next_indent <= indent and next_key not in known_keys:
+            if next_indent > indent or next_indent <= indent and next_key not in known_keys:
                 should_open_multiline = True
 
         if not should_open_multiline:
@@ -659,7 +654,7 @@ def build_history_entry(
         for field in changed_fields
     }
     return {
-        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "saved_at": datetime.now(UTC).isoformat(),
         "source_stage": str(source_stage or "").strip(),
         "memory_owner": str(memory_owner or "").strip(),
         "changed_fields": changed_fields,

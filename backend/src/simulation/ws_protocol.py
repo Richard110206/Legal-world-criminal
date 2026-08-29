@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
 
 MSG_AGENT_SPAWN = "agent_spawn"
 MSG_AGENT_MOVE = "agent_move"
@@ -202,7 +201,7 @@ def dialogue_gate_error(
         "gate_id": gate_id,
         "code": code,
         "message": message,
-        "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "occurred_at": datetime.now(UTC).isoformat(),
     }
 
 
@@ -221,7 +220,7 @@ def runtime_progress(
         "message": message,
         "detail": detail,
         "blocking": blocking,
-        "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "occurred_at": datetime.now(UTC).isoformat(),
     }
     if metadata:
         payload.update(metadata)
@@ -263,7 +262,7 @@ def dialogue_gate_error(
         "gate_id": gate_id,
         "code": code,
         "message": message,
-        "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "occurred_at": datetime.now(UTC).isoformat(),
     }
 
 

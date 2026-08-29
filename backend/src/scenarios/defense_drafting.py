@@ -7,15 +7,15 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from .base_scenario import BaseScenario
 from ..tools.legal import (
     get_document_drafting_tool_name,
     render_document_drafting_payload,
 )
 from ..tools.legal.document_drafting_support import extract_document_body
 from ..utils.prompt_profile import resolve_prompt_profile_max_turns
+from .base_scenario import BaseScenario
 from .drafting_runtime import (
     DRAFTING_MAX_TURNS,
     build_forced_document_prompt,
@@ -24,7 +24,6 @@ from .drafting_runtime import (
     is_stalled_drafting_dialogue,
     missing_document_error,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +40,8 @@ class DefenseDraftingScenario(BaseScenario):
         self,
         defendant_agent,
         lawyer_agent,
-        max_turns: Optional[int] = None,
-        output_path: Optional[str] = None,
+        max_turns: int | None = None,
+        output_path: str | None = None,
         verbose: bool = False,
         **kwargs,
     ):
@@ -60,7 +59,7 @@ class DefenseDraftingScenario(BaseScenario):
         super().__init__(agents=agents, max_turns=resolved_max_turns, verbose=verbose, **kwargs)
         self.output_path = output_path
         self.defense_statement = ""
-        self._drafted_document_payload: Dict[str, str] = {}
+        self._drafted_document_payload: dict[str, str] = {}
         self.finish_reason = "max_turns"
 
     def _require_runtime_tools(self, lawyer: Any) -> None:
@@ -107,7 +106,7 @@ class DefenseDraftingScenario(BaseScenario):
             raise last_error
         return ""
 
-    def execute(self) -> Dict[str, Any]:
+    def execute(self) -> dict[str, Any]:
         defendant = self.agents["defendant"]
         lawyer = self.agents["lawyer"]
 
@@ -226,7 +225,7 @@ class DefenseDraftingScenario(BaseScenario):
         except Exception as exc:
             logger.warning("Failed to backfill defense PDF output: %s", exc)
 
-    def _build_result(self) -> Dict[str, Any]:
+    def _build_result(self) -> dict[str, Any]:
         return {
             "scenario_type": self.scenario_type,
             "dialog_history": self.dialog_history,
@@ -238,7 +237,7 @@ class DefenseDraftingScenario(BaseScenario):
             "pdf_path": str(self._drafted_document_payload.get("pdf_path", "") or ""),
         }
 
-    def _save_result(self, result: Dict[str, Any]) -> None:
+    def _save_result(self, result: dict[str, Any]) -> None:
         if not self.output_path:
             return
         Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -265,7 +264,7 @@ class DefenseDraftingScenario(BaseScenario):
         else:
             self.finish_reason = "forced_draft_failed"
 
-    def _build_checkpoint_data(self) -> Dict[str, Any]:
+    def _build_checkpoint_data(self) -> dict[str, Any]:
         return {
             "scenario_type": self.scenario_type,
             "dialog_history": self.dialog_history,
@@ -276,7 +275,7 @@ class DefenseDraftingScenario(BaseScenario):
             "finish_reason": self.finish_reason,
         }
 
-    async def resume_from_checkpoint(self, checkpoint_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def resume_from_checkpoint(self, checkpoint_data: dict[str, Any]) -> dict[str, Any]:
         self.dialog_history = checkpoint_data.get("dialog_history", [])
         self.turn_count = checkpoint_data.get("turn_count", 0)
         self.completed = checkpoint_data.get("completed", False)

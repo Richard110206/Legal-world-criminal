@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional
+from typing import Any
 
 import yaml
 
@@ -28,7 +29,7 @@ def normalize_skill_dirs(skill_dirs: Iterable[str | Path | None]) -> list[str]:
     return normalized
 
 
-def _resolve_skills_root(base_dir: str | Path) -> Optional[Path]:
+def _resolve_skills_root(base_dir: str | Path) -> Path | None:
     """Resolve a user-provided path to an actual skills root."""
     resolved = Path(base_dir).resolve()
     if not resolved.is_dir():
@@ -43,7 +44,7 @@ class _FlatSkillToolkit:
     def __init__(
         self,
         skill_dirs: list[str],
-        usage_recorder: Optional[Callable[[dict[str, Any]], None]] = None,
+        usage_recorder: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.skill_dirs = normalize_skill_dirs(skill_dirs)
         self._usage_recorder = usage_recorder
@@ -100,7 +101,7 @@ class _FlatSkillToolkit:
         return any(part.startswith(".") for part in relative.parts[:-1])
 
     @staticmethod
-    def _split_frontmatter(contents: str) -> tuple[Optional[str], str]:
+    def _split_frontmatter(contents: str) -> tuple[str | None, str]:
         normalized = contents.lstrip("\ufeff")
         lines = normalized.splitlines()
         if not lines or lines[0].strip() != "---":
@@ -112,7 +113,7 @@ class _FlatSkillToolkit:
 
         return None, contents
 
-    def _parse_skill(self, path: Path) -> Optional[dict[str, str]]:
+    def _parse_skill(self, path: Path) -> dict[str, str] | None:
         try:
             contents = path.read_text(encoding="utf-8-sig")
         except OSError as exc:
@@ -159,7 +160,7 @@ class _FlatSkillToolkit:
             for _, skill in sorted(self._skills_by_name.items())
         ]
 
-    def _resolve_skill(self, name_or_path: str) -> Optional[dict[str, Any]]:
+    def _resolve_skill(self, name_or_path: str) -> dict[str, Any] | None:
         raw = (name_or_path or "").strip()
         if not raw:
             return None
@@ -323,7 +324,7 @@ class _FlatSkillToolkit:
 
 def load_agent_skills(
     skill_dirs: list[str],
-    usage_recorder: Optional[Callable[[dict[str, Any]], None]] = None,
+    usage_recorder: Callable[[dict[str, Any]], None] | None = None,
 ) -> list:
     """Load merged flat skill tools from multiple directories."""
     normalized_dirs = normalize_skill_dirs(skill_dirs)

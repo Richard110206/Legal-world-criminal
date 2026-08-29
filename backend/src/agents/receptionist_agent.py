@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
-from .base_agent import BaseAgent
 from ..prompts.prompt_assembler import PromptAssembler
 from ..utils.agent_trace import CaseAgentTraceRecorder, bind_agent_trace_context
+from .base_agent import BaseAgent
 
 if TYPE_CHECKING:
     from ..core.event_bus import EventBus
@@ -26,13 +26,13 @@ class ReceptionistAgent(BaseAgent):
     def __init__(
         self,
         firm_id: str,
-        event_bus: "EventBus",
-        storage: "FileStorageManager",
-        config_path: Optional[str] = None,
-        map_engine: Optional[Any] = None,
+        event_bus: EventBus,
+        storage: FileStorageManager,
+        config_path: str | None = None,
+        map_engine: Any | None = None,
     ):
         self.firm_id = firm_id
-        self._firm_dir: Optional[str] = None
+        self._firm_dir: str | None = None
         self.map_engine = map_engine
         self._assignment_lock = asyncio.Lock()
         self._reserved_lawyers: dict[str, str] = {}
@@ -342,7 +342,7 @@ class ReceptionistAgent(BaseAgent):
                         self._llm_match(payload),
                         timeout=self._llm_match_timeout_seconds(),
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning(
                         "[FrontDesk %s] LLM match timed out for case=%s; falling back to rule match",
                         self.firm_id,
@@ -402,7 +402,7 @@ class ReceptionistAgent(BaseAgent):
         except (TypeError, ValueError):
             return DEFAULT_LLM_MATCH_TIMEOUT_SECONDS
 
-    async def _llm_match(self, payload: dict) -> Optional[str]:
+    async def _llm_match(self, payload: dict) -> str | None:
         """Run the reception scenario and return the matched lawyer id.
 
         Returns ``None`` when the scenario explicitly concludes that no suitable
@@ -879,7 +879,7 @@ class ReceptionistAgent(BaseAgent):
 
         return designated_ids[0]
 
-    def _lookup_lawyer_name(self, lawyer_id: str, roster: Optional[dict] = None) -> str:
+    def _lookup_lawyer_name(self, lawyer_id: str, roster: dict | None = None) -> str:
         if lawyer_id and roster:
             for lawyer in roster.get("lawyers", []):
                 if str(lawyer.get("id", "") or "").strip() == lawyer_id:

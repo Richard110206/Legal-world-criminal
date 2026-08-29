@@ -5,16 +5,15 @@ Prompt building and scenario execution are handled by PromptAssembler
 and ScenarioOrchestrator respectively.
 """
 
-import os
 import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+import os
+from typing import TYPE_CHECKING, Any
 
-from .base_agent import BaseAgent
 from ..pipeline.stage_tool_resolver import build_agent_default_tools
+from .base_agent import BaseAgent
 
 if TYPE_CHECKING:
-    from ..core.event_bus import EventBus
-    from ..core.file_storage_manager import FileStorageManager
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -22,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 def _build_default_judge_tools(
     agent: "JudgeAgent",
-    provided_tools: Optional[List[Any]] = None,
-) -> List[Any]:
+    provided_tools: list[Any] | None = None,
+) -> list[Any]:
     """Build the default toolset for judge agents."""
     return build_agent_default_tools("judge", agent, provided_tools=provided_tools)
 
@@ -41,14 +40,14 @@ class JudgeAgent(BaseAgent):
         name: str,
         court_name: str = "人民法院",
         court_level: str = "basic",
-        years_of_experience: Optional[int] = None,
+        years_of_experience: int | None = None,
         personality: str = "",
         speaking_style: str = "",
         # Pipeline-only params
         system_prompt: str = "",
-        scenario_type: Optional[str] = None,
-        scenario_data: Optional[Dict[str, Any]] = None,
-        work_memory_path: Optional[str] = None,
+        scenario_type: str | None = None,
+        scenario_data: dict[str, Any] | None = None,
+        work_memory_path: str | None = None,
         **kwargs
     ):
         config_path = kwargs.get("config_path")
@@ -114,14 +113,14 @@ class JudgeAgent(BaseAgent):
     # ══════════════════════════════════════════════════════════
 
     @property
-    def current_handling_case(self) -> Optional[str]:
+    def current_handling_case(self) -> str | None:
         if not self.storage or not self.config_path:
             return None
         config = self.storage.load_agent_config(self.config_path)
         return config.get("current_handling_case")
 
     @property
-    def case_queue(self) -> List[str]:
+    def case_queue(self) -> list[str]:
         if not self.storage or not self.config_path:
             return []
         config = self.storage.load_agent_config(self.config_path)

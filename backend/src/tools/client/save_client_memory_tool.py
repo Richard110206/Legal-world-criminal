@@ -23,7 +23,6 @@ from ...utils.live_card_memory import (
     update_agent_memory_cache,
 )
 
-
 SAVE_CLIENT_MEMORY_DESCRIPTION = build_save_tool_description(CLIENT_MEMORY_OWNER)
 SAVE_CLIENT_MEMORY_OPERATIONS_DESCRIPTION = build_save_operations_description(CLIENT_MEMORY_OWNER)
 

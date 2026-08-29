@@ -12,24 +12,18 @@ import json
 import logging
 import random
 from collections import deque
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from ..prompts.prompt_assembler import PromptAssembler
+from ..core.event_bus import EventType
 from ..data.data_loader import DataLoader
-from ..player_lawyer.responsibility_marker import build_player_responsibility_marker
 from ..pipeline.stage_tool_resolver import apply_stage_tool_permissions, clear_stage_tool_permissions
+from ..player_lawyer.responsibility_marker import build_player_responsibility_marker
+from ..prompts.prompt_assembler import PromptAssembler
 from ..runtime_tech_strategy import RuntimeTechStrategy
-from ..utils.drafted_document_sections import (
-    resolve_stage_document_text,
-)
-from ..utils.prompt_profile import resolve_prompt_profile_max_turns
-from ..utils.runtime_flags import (
-    player_lawyer_ai_surrogate_enabled,
-    player_lawyer_mode_for_frontend,
-    scenario_verbose_enabled,
-)
+from ..utils.agent_trace import CaseAgentTraceRecorder, bind_agent_trace_context
 from ..utils.live_card_memory import (
     CLIENT_LOAD_TOOL_NAME,
     CLIENT_MEMORY_OWNER,
@@ -42,15 +36,19 @@ from ..utils.live_card_memory import (
     has_meaningful_memory,
     load_memory_for_agent,
 )
-from ..utils.agent_trace import CaseAgentTraceRecorder, bind_agent_trace_context
-from ..core.event_bus import EventType
+from ..utils.prompt_profile import resolve_prompt_profile_max_turns
+from ..utils.runtime_flags import (
+    player_lawyer_ai_surrogate_enabled,
+    player_lawyer_mode_for_frontend,
+    scenario_verbose_enabled,
+)
 
 if TYPE_CHECKING:
-    from .agent_registry import AgentRegistry
     from ..core.event_bus import EventBus
-    from .case_fsm import CaseStateMachine
     from ..core.file_storage_manager import FileStorageManager
     from ..simulation.map_engine import TownAvatarInterface
+    from .agent_registry import AgentRegistry
+    from .case_fsm import CaseStateMachine
 
 logger = logging.getLogger(__name__)
 SCENARIO_VERBOSE = scenario_verbose_enabled()
@@ -1005,7 +1003,7 @@ class ScenarioOrchestrator:
 
         if filepath.exists():
             try:
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     loaded = json.load(f)
                 if isinstance(loaded, dict):
                     export_data.update(loaded)
@@ -1923,9 +1921,8 @@ class ScenarioOrchestrator:
 
     async def _run_consultation(self, payload: dict) -> None:
         """Run Legal Consultation (LC) scenario."""
-        from ..scenarios.legal_consultation import LegalConsultationScenario
         from ..core.event_bus import EventType
-        from .case_fsm import CaseState
+        from ..scenarios.legal_consultation import LegalConsultationScenario
 
         case_id = payload.get("case_id", "")
         party_role = payload.get("party_role", "plaintiff")
@@ -2313,7 +2310,7 @@ class ScenarioOrchestrator:
                 self.map_engine.sit_agent(client.agent_id, client_chair),
                 self.map_engine.sit_agent(lawyer.agent_id, lawyer_chair),
             )
-            logger.info(f"[Choreography] ✓ 双方已就座，准备开始咨询")
+            logger.info("[Choreography] ✓ 双方已就座，准备开始咨询")
 
         # 发布委托洽谈事件（刑事入口统一由委托人推进）
         from ..core.event_bus import EventType
@@ -2579,9 +2576,8 @@ class ScenarioOrchestrator:
 
     async def _run_investigation(self, payload: dict) -> None:
         """INV 侦查阶段：律师与当事人家属（plaintiff client）就强制措施与会见进行咨询式对话。"""
-        from ..scenarios.legal_consultation import LegalConsultationScenario
         from ..core.event_bus import EventType
-        from .case_fsm import CaseState
+        from ..scenarios.legal_consultation import LegalConsultationScenario
 
         case_id = str(payload.get("case_id") or "")
         client_path = payload.get("client_path") or ""
@@ -2766,8 +2762,8 @@ class ScenarioOrchestrator:
 
     async def _run_prosecution_review(self, payload: dict) -> None:
         """PR 审查起诉：律师（阅卷后）与被告人会见 + 向检察官提交辩护意见。"""
-        from ..scenarios.prosecution_review import ProsecutionReviewScenario
         from ..core.event_bus import EventType
+        from ..scenarios.prosecution_review import ProsecutionReviewScenario
 
         case_id = str(payload.get("case_id") or "")
         client_path = payload.get("client_path") or ""
@@ -3109,9 +3105,9 @@ class ScenarioOrchestrator:
 
     async def _run_defense_opinion_drafting(self, payload: dict) -> None:
         """DS 辩护词起草：律师与被告人沟通后起草《辩护词》。"""
+        from ..core.event_bus import EventType
         from ..scenarios.defense_opinion_drafting import DefenseOpinionDraftingScenario
         from ..tools.legal import get_document_drafting_tool_name
-        from ..core.event_bus import EventType
 
         case_id = str(payload.get("case_id") or "")
         defendant, defendant_path = self._find_client_for_case(case_id, party_role="defendant")
@@ -3299,8 +3295,8 @@ class ScenarioOrchestrator:
 
     async def _run_criminal_trial(self, payload: dict) -> None:
         """CR 刑事一审庭审。"""
-        from ..scenarios.criminal_trial import CriminalTrialScenario
         from ..core.event_bus import EventType
+        from ..scenarios.criminal_trial import CriminalTrialScenario
 
         case_id = str(payload.get("case_id") or "")
         defendant, defendant_path = self._find_client_for_case(case_id, party_role="defendant")
@@ -3447,6 +3443,8 @@ class ScenarioOrchestrator:
                     court_finding=str(fi.get("court_finding") or ""),
                     court_opinion=str(fi.get("court_opinion") or ""),
                     output_path=output_path,
+                    case_charge=str(trial_data.get("charge") or ""),
+                    case_source_title=str(info.get("source_title") or ""),
                     bubble_publisher=bubble_publisher,
                     trace_recorder=trace_recorder,
                     trace_stage_code="CR",
@@ -3653,8 +3651,8 @@ class ScenarioOrchestrator:
 
     async def _run_criminal_appeal_trial(self, payload: dict) -> None:
         """CRA 刑事二审庭审。"""
-        from ..scenarios.criminal_appeal_trial import CriminalAppealTrialScenario
         from ..core.event_bus import EventType
+        from ..scenarios.criminal_appeal_trial import CriminalAppealTrialScenario
 
         case_id = str(payload.get("case_id") or "")
         appellant, appellant_path = self._find_client_for_case(case_id, party_role="defendant")
@@ -3777,6 +3775,8 @@ class ScenarioOrchestrator:
                 first_verdict_summary=str(fi.get("main_sentence") or ""),
                 first_court_opinion=str(fi.get("court_opinion") or ""),
                 output_path=output_path,
+                case_charge=str(appeal_data.get("charge") or ""),
+                case_source_title=str(info.get("source_title") or ""),
                 trace_recorder=trace_recorder,
                 trace_stage_code="CRA",
                 trace_stage_key="CRA",

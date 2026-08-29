@@ -12,18 +12,17 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
-import threading
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-from . import citation_alignment, citation_check, deterministic, rubrics, transcript  # noqa: E402
+from . import citation_alignment, citation_check, deterministic, transcript  # noqa: E402
 from .deterministic import merge_deterministic_score  # noqa: E402
 from .rubrics import (  # noqa: E402
     build_judge_eval_prompt,
@@ -147,19 +146,21 @@ class TeachingScorer:
         student_id: str = "",
         run_async: bool = False,
     ) -> dict[str, Any] | None:
-        """Score one stage; returns the LearningEvent dict (or None on failure)."""
+        """Score one stage; returns the LearningEvent dict (or None on failure).
+
+        ``run_async=True`` enqueues the job on the persistent ScoringTaskQueue
+        (bounded pool, crash-safe, retried) instead of a fire-and-forget
+        daemon thread; it returns None immediately.
+        """
         if run_async:
-            thread = threading.Thread(
-                target=self._score_stage_safe,
-                kwargs={
-                    "case_id": case_id,
-                    "stage": stage,
-                    "case_output_dir": case_output_dir,
-                    "student_id": student_id,
-                },
-                daemon=True,
+            from .task_queue import submit_scoring
+
+            submit_scoring(
+                case_id=case_id,
+                stage=stage,
+                case_output_dir=case_output_dir,
+                student_id=student_id,
             )
-            thread.start()
             return None
         return self._score_stage_safe(
             case_id=case_id,

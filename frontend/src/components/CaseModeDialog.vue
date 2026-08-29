@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import type { CasePickerEntry, PlayerMode } from "../lib/types";
 
@@ -26,7 +26,6 @@ function confirm() {
   emit("confirm", selected.value, props.caseEntry.case_id);
 }
 
-const isCriminal = computed(() => props.caseEntry?.case_category === "criminal");
 
 const modeOptions = computed<
   {

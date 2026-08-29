@@ -5,12 +5,12 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
+    from ..agents.base_agent import BaseAgent
     from ..core.event_bus import EventBus
     from ..core.file_storage_manager import FileStorageManager
-    from ..agents.base_agent import BaseAgent
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,14 @@ class AgentRegistry:
         sandbox_data_dir: Path,
         event_bus: "EventBus",
         storage: "FileStorageManager",
-        map_engine: Optional[Any] = None,
+        map_engine: Any | None = None,
     ):
         self.sandbox_data_dir = Path(sandbox_data_dir)
         self.event_bus = event_bus
         self.storage = storage
         self.map_engine = map_engine
-        self._agents: Dict[str, "BaseAgent"] = {}
-        self._firms: Dict[str, dict] = {}
+        self._agents: dict[str, BaseAgent] = {}
+        self._firms: dict[str, dict] = {}
 
     def discover_all(self) -> None:
         """Scan sandbox_data/ and instantiate all agents as shells."""
@@ -47,13 +47,13 @@ class AgentRegistry:
             f"{[a.name for a in self._agents.values()]}"
         )
 
-    def get_all_agents(self) -> List["BaseAgent"]:
+    def get_all_agents(self) -> list["BaseAgent"]:
         return list(self._agents.values())
 
     def get_agent(self, agent_id: str) -> Optional["BaseAgent"]:
         return self._agents.get(agent_id)
 
-    def get_agents_by_type(self, agent_type: str) -> List["BaseAgent"]:
+    def get_agents_by_type(self, agent_type: str) -> list["BaseAgent"]:
         """Get all agents of a given type: 'client', 'lawyer', 'judge', 'receptionist', 'prosecutor'."""
         type_map = {
             "client": "ClientAgent",

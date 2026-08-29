@@ -1,7 +1,6 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { useSession } from "../composables/useSession";
-import { roleName } from "../lib/roleNames";
 
 const session = useSession();
 const logEl = ref<HTMLElement | null>(null);

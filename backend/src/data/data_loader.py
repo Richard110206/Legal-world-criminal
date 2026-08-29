@@ -6,9 +6,8 @@ information from legal case JSON files.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
 from pathlib import Path
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class DataLoader:
         json_path: Path to the JSON data file
         cases: List of loaded case data dictionaries
     """
-    
+
     def __init__(self, json_path: str):
         """Initialize data loader.
         
@@ -31,13 +30,13 @@ class DataLoader:
             json_path: Path to the JSON data file
         """
         self.json_path = json_path
-        self.cases: List[Dict[str, Any]] = []
+        self.cases: list[dict[str, Any]] = []
         self._load_data()
-    
+
     def _load_data(self) -> None:
         """Load JSON data from file."""
         try:
-            with open(self.json_path, 'r', encoding='utf-8') as f:
+            with open(self.json_path, encoding='utf-8') as f:
                 data = json.load(f)
                 # Handle both list and single object
                 if isinstance(data, list):
@@ -48,8 +47,8 @@ class DataLoader:
         except Exception as e:
             logger.error(f"Failed to load data from {self.json_path}: {e}")
             self.cases = []
-    
-    def get_case(self, case_id: int = 0) -> Dict[str, Any]:
+
+    def get_case(self, case_id: int = 0) -> dict[str, Any]:
         """Get case data by original_id.
 
         Args:
@@ -78,14 +77,14 @@ class DataLoader:
             return False
         return left == right or left in right or right in left
 
-    def _extract_party_names(self, case: Dict[str, Any], party_role: str) -> List[str]:
+    def _extract_party_names(self, case: dict[str, Any], party_role: str) -> list[str]:
         party_info = case.get("extracted_info", {}).get("party_info", {})
         # 刑事公诉案无原告：plaintiff 角色位实为被羁押人家属（"XX家属委托人"），
         # 数据集 party_info 只有 defendant/prosecutor —— 匹配 plaintiff 时兜底查
         # defendant 名册（名字包含被告人名即认定为同案家属）。
         role_keys = ["plaintiff"] if party_role == "plaintiff" else ["defendant"]
 
-        names: List[str] = []
+        names: list[str] = []
         for key in role_keys:
             party_raw = party_info.get(key, {})
             names.extend(self._names_from_party(party_raw))
@@ -96,7 +95,7 @@ class DataLoader:
         return [n for n in names if n]
 
     @classmethod
-    def _names_from_party(cls, party_raw: Any) -> List[str]:
+    def _names_from_party(cls, party_raw: Any) -> list[str]:
         if isinstance(party_raw, list):
             return [
                 cls._normalize_name(item.get("name", ""))
@@ -110,7 +109,7 @@ class DataLoader:
 
         return []
 
-    def _case_matches_profile(self, case: Dict[str, Any], party_role: str, profile_name: str) -> bool:
+    def _case_matches_profile(self, case: dict[str, Any], party_role: str, profile_name: str) -> bool:
         normalized_profile_name = self._normalize_name(profile_name)
         if not case or not normalized_profile_name:
             return False
@@ -121,8 +120,8 @@ class DataLoader:
         )
 
     @classmethod
-    def _merge_mapping_list(cls, items: List[Any]) -> Dict[str, Any]:
-        merged: Dict[str, Any] = {}
+    def _merge_mapping_list(cls, items: list[Any]) -> dict[str, Any]:
+        merged: dict[str, Any] = {}
         for item in items:
             if not isinstance(item, dict):
                 continue
@@ -136,7 +135,7 @@ class DataLoader:
         return merged
 
     @classmethod
-    def _as_mapping(cls, value: Any) -> Dict[str, Any]:
+    def _as_mapping(cls, value: Any) -> dict[str, Any]:
         if isinstance(value, dict):
             return value
         if isinstance(value, list):
@@ -144,7 +143,7 @@ class DataLoader:
         return {}
 
     @classmethod
-    def _extract_instance_mapping(cls, case: Dict[str, Any], instance_key: str) -> Dict[str, Any]:
+    def _extract_instance_mapping(cls, case: dict[str, Any], instance_key: str) -> dict[str, Any]:
         extracted_info = case.get("extracted_info", {})
         if not isinstance(extracted_info, dict):
             return {}
@@ -171,7 +170,7 @@ class DataLoader:
         case_id: int | str | None = 0,
         party_role: str = "plaintiff",
         profile_name: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Resolve a case robustly for sandbox agents.
 
         The sandbox directory often uses stable local case folders like ``case_1``,
@@ -179,7 +178,7 @@ class DataLoader:
         those folder numbers. We therefore try the declared ``case_id`` first, then
         fall back to matching by the current party's profile name.
         """
-        candidate: Dict[str, Any] = {}
+        candidate: dict[str, Any] = {}
         normalized_case_id = str(case_id or "").strip()
         if normalized_case_id.startswith("case_"):
             normalized_case_id = normalized_case_id[5:]
@@ -235,10 +234,10 @@ class DataLoader:
 
     def resolve_case_for_config(
         self,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         fallback_name: str = "",
-        fallback_dataset_paths: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        fallback_dataset_paths: list[str] | None = None,
+    ) -> dict[str, Any]:
         profile = config.get("profile", {})
         profile_name = ""
         if isinstance(profile, dict):
@@ -282,7 +281,7 @@ class DataLoader:
                 return fallback_case
 
         return {}
-    
+
     def get_case_count(self) -> int:
         """Get total number of cases.
         
@@ -292,11 +291,11 @@ class DataLoader:
         return len(self.cases)
 
     @staticmethod
-    def _extract_legal_persona_profile(profile: Any) -> Dict[str, str]:
+    def _extract_legal_persona_profile(profile: Any) -> dict[str, str]:
         if not isinstance(profile, dict):
             return {}
 
-        extracted: Dict[str, str] = {}
+        extracted: dict[str, str] = {}
         for field in (
             "legal_literacy_level",
             "information_disclosure_willingness",
@@ -314,7 +313,7 @@ class DataLoader:
         return normalized in {"法人", "企业", "公司", "corporate", "company", "legal_person"}
 
     @classmethod
-    def normalize_party_profile(cls, profile: Any) -> Dict[str, Any]:
+    def normalize_party_profile(cls, profile: Any) -> dict[str, Any]:
         if not isinstance(profile, dict):
             return {}
 
@@ -333,8 +332,8 @@ class DataLoader:
             normalized["birth_date"] = ""
 
         return normalized
-    
-    def extract_plaintiff_profile(self, case: Dict[str, Any]) -> Dict[str, Any]:
+
+    def extract_plaintiff_profile(self, case: dict[str, Any]) -> dict[str, Any]:
         """Extract plaintiff profile (固有字段) from case data.
         
         Args:
@@ -345,7 +344,7 @@ class DataLoader:
         """
         party_info = case.get("extracted_info", {}).get("party_info", {})
         plaintiff = self.normalize_party_profile(party_info.get("plaintiff", {}))
-        
+
         # Extract only the question text, excluding reference answers
         questions_raw = plaintiff.get("questions", [])
         questions = []
@@ -354,7 +353,7 @@ class DataLoader:
                 questions.append(q["question"])
             elif isinstance(q, str):
                 questions.append(q)
-        
+
         return {
             "name": plaintiff.get("name", ""),
             "type": plaintiff.get("type", ""),
@@ -372,8 +371,8 @@ class DataLoader:
             ),
             "questions": questions,
         }
-    
-    def extract_defendant_profile(self, case: Dict[str, Any]) -> Dict[str, Any]:
+
+    def extract_defendant_profile(self, case: dict[str, Any]) -> dict[str, Any]:
         """Extract defendant profile (固有字段) from case data.
 
         Handles both single defendant (dict) and multiple defendants (list).
@@ -424,8 +423,8 @@ class DataLoader:
             ),
             "questions": questions,
         }
-    
-    def extract_case_background(self, case: Dict[str, Any]) -> str:
+
+    def extract_case_background(self, case: dict[str, Any]) -> str:
         """Extract case background from case data.
         
         Args:
@@ -435,8 +434,8 @@ class DataLoader:
             Case background string
         """
         return case.get("extracted_info", {}).get("case_background", "")
-    
-    def extract_case_id(self, case: Dict[str, Any]) -> str:
+
+    def extract_case_id(self, case: dict[str, Any]) -> str:
         """Extract case ID from case data.
         
         Uses original_id field from the new dataset format.
@@ -448,8 +447,8 @@ class DataLoader:
             Case ID string
         """
         return str(case.get("original_id", ""))
-    
-    def extract_case_cause(self, case: Dict[str, Any]) -> str:
+
+    def extract_case_cause(self, case: dict[str, Any]) -> str:
         """Extract case cause (案由) from case data.
         
         Args:
@@ -459,8 +458,8 @@ class DataLoader:
             Case cause string (e.g. '买卖合同纠纷')
         """
         return case.get("extracted_info", {}).get("case_cause", "")
-    
-    def extract_case_number(self, case: Dict[str, Any], instance: str = "first") -> str:
+
+    def extract_case_number(self, case: dict[str, Any], instance: str = "first") -> str:
         """Extract case number (案号) from case data.
         
         Args:
@@ -472,8 +471,8 @@ class DataLoader:
         """
         instance_key = "first_instance" if instance == "first" else "second_instance"
         return self._extract_instance_mapping(case, instance_key).get("case_number", "")
-    
-    def extract_judge_name(self, case: Dict[str, Any], instance: str = "first") -> str:
+
+    def extract_judge_name(self, case: dict[str, Any], instance: str = "first") -> str:
         """Extract judge name (审判员姓名) from case data.
         
         Args:
@@ -486,8 +485,8 @@ class DataLoader:
         instance_key = "first_instance" if instance == "first" else "second_instance"
         judges = self._extract_instance_mapping(case, instance_key).get("judges", [])
         return judges[0] if judges else ""
-    
-    def extract_court_name(self, case: Dict[str, Any], instance: str = "first") -> str:
+
+    def extract_court_name(self, case: dict[str, Any], instance: str = "first") -> str:
         """Extract court name (法院名称) from case data.
         
         Args:
@@ -499,8 +498,8 @@ class DataLoader:
         """
         instance_key = "first_instance" if instance == "first" else "second_instance"
         return self._extract_instance_mapping(case, instance_key).get("court", "")
-    
-    def extract_first_instance_info(self, case: Dict[str, Any]) -> Dict[str, Any]:
+
+    def extract_first_instance_info(self, case: dict[str, Any]) -> dict[str, Any]:
         """Extract first instance information from case data.
         
         Args:
@@ -510,19 +509,19 @@ class DataLoader:
             First instance info dictionary
         """
         first_instance = self._extract_instance_mapping(case, "first_instance")
-        
+
         # Extract plaintiff_claim
         plaintiff_claim = first_instance.get("plaintiff_claim", {})
         claims = plaintiff_claim.get("claim", [])
-        
+
         # Extract defendant_plea
         defendant_plea = first_instance.get("defendant_plea", {})
         defense = self._extract_text(defendant_plea, "plea", "defense")
-        
+
         # Extract judgment result
         final_judgment = first_instance.get("final_judgment", {})
         judgment_result = final_judgment.get("judgment_result", [])
-        
+
         return {
             "claims": claims,
             "facts_and_reasons": first_instance.get("facts_and_reasons", ""),
@@ -535,8 +534,8 @@ class DataLoader:
             "court": first_instance.get("court", ""),
             "case_number": first_instance.get("case_number", ""),
         }
-    
-    def extract_second_instance_info(self, case: Dict[str, Any]) -> Dict[str, Any]:
+
+    def extract_second_instance_info(self, case: dict[str, Any]) -> dict[str, Any]:
         """Extract second instance information from case data.
         
         Args:
@@ -569,8 +568,8 @@ class DataLoader:
             "court_opinion": court_opinion,
             "judgment": court_opinion,
         }
-    
-    def extract_claims(self, case: Dict[str, Any]) -> str:
+
+    def extract_claims(self, case: dict[str, Any]) -> str:
         """Extract claims (诉讼请求) from case data.
         
         Args:
@@ -582,12 +581,12 @@ class DataLoader:
         first_instance = self._extract_instance_mapping(case, "first_instance")
         plaintiff_claim = self._as_mapping(first_instance.get("plaintiff_claim", {}))
         claims = plaintiff_claim.get("claim", [])
-        
+
         if isinstance(claims, list):
             return "\n".join(f"{i+1}. {c}" for i, c in enumerate(claims))
         return str(claims) if claims else ""
-    
-    def extract_evidence(self, case: Dict[str, Any]) -> str:
+
+    def extract_evidence(self, case: dict[str, Any]) -> str:
         """Extract evidence from case data.
         
         Args:
@@ -598,32 +597,32 @@ class DataLoader:
         """
         first_instance = self._extract_instance_mapping(case, "first_instance")
         evidence = first_instance.get("evidence", {})
-        
+
         # Handle nested evidence structure
         evidence_items = []
-        
+
         # Extract plaintiff evidence
         evidence_mapping = self._as_mapping(evidence)
         plaintiff_evidence = self._as_mapping(evidence_mapping.get("plaintiff_evidence", {}))
         for key, value in plaintiff_evidence.items():
             if isinstance(value, dict) and "evidence" in value:
                 evidence_items.append(f"原告证据：{value['evidence']}")
-        
-        # Extract defendant evidence  
+
+        # Extract defendant evidence
         defendant_evidence = self._as_mapping(evidence_mapping.get("defendant_evidence", {}))
         for key, value in defendant_evidence.items():
             if isinstance(value, dict) and "evidence" in value:
                 evidence_items.append(f"被告证据：{value['evidence']}")
-        
+
         if evidence_items:
             return "\n".join(f"{i+1}. {e}" for i, e in enumerate(evidence_items))
-        
+
         # Fallback: if evidence is a simple list or string
         if isinstance(evidence, list):
             return "\n".join(f"{i+1}. {e}" for i, e in enumerate(evidence))
         return str(evidence) if evidence else ""
-    
-    def extract_plaintiff_evidence(self, case: Dict[str, Any]) -> str:
+
+    def extract_plaintiff_evidence(self, case: dict[str, Any]) -> str:
         """仅提取原告证据。
         
         Args:
@@ -635,17 +634,17 @@ class DataLoader:
         first_instance = self._extract_instance_mapping(case, "first_instance")
         evidence = self._as_mapping(first_instance.get("evidence", {}))
         plaintiff_evidence = self._as_mapping(evidence.get("plaintiff_evidence", {}))
-        
+
         evidence_items = []
         for key, value in plaintiff_evidence.items():
             if isinstance(value, dict) and "evidence" in value:
                 evidence_items.append(value['evidence'])
-        
+
         if evidence_items:
             return "\n".join(f"{i+1}. {e}" for i, e in enumerate(evidence_items))
         return ""
-    
-    def extract_defendant_evidence(self, case: Dict[str, Any]) -> str:
+
+    def extract_defendant_evidence(self, case: dict[str, Any]) -> str:
         """仅提取被告证据。
         
         Args:
@@ -657,17 +656,17 @@ class DataLoader:
         first_instance = self._extract_instance_mapping(case, "first_instance")
         evidence = self._as_mapping(first_instance.get("evidence", {}))
         defendant_evidence = self._as_mapping(evidence.get("defendant_evidence", {}))
-        
+
         evidence_items = []
         for key, value in defendant_evidence.items():
             if isinstance(value, dict) and "evidence" in value:
                 evidence_items.append(value['evidence'])
-        
+
         if evidence_items:
             return "\n".join(f"{i+1}. {e}" for i, e in enumerate(evidence_items))
         return ""
-    
-    def extract_facts_and_reasons(self, case: Dict[str, Any]) -> str:
+
+    def extract_facts_and_reasons(self, case: dict[str, Any]) -> str:
         """Extract facts and reasons from case data.
         
         Args:
@@ -678,8 +677,8 @@ class DataLoader:
         """
         first_instance = self._extract_instance_mapping(case, "first_instance")
         return first_instance.get("facts_and_reasons", "")
-    
-    def extract_defendant_defense(self, case: Dict[str, Any]) -> str:
+
+    def extract_defendant_defense(self, case: dict[str, Any]) -> str:
         """Extract defendant's defense from case data.
         
         Args:
@@ -695,7 +694,7 @@ class DataLoader:
             return plea
         return self._extract_text(first_instance.get("defendant_defense", ""))
 
-    def extract_court_opinion(self, case: Dict[str, Any]) -> str:
+    def extract_court_opinion(self, case: dict[str, Any]) -> str:
         """Extract court opinion (本院认为) from case data.
         
         Args:
@@ -707,18 +706,18 @@ class DataLoader:
         first_instance = self._extract_instance_mapping(case, "first_instance")
         return first_instance.get("court_opinion", "")
 
-    def extract_second_instance_court_opinion(self, case: Dict[str, Any]) -> str:
+    def extract_second_instance_court_opinion(self, case: dict[str, Any]) -> str:
         """Extract second-instance court opinion with backward-compatible fallbacks."""
         second_instance = self._extract_instance_mapping(case, "second_instance")
         return second_instance.get("court_opinion", "") or second_instance.get("judgment", "")
 
-    def extract_second_instance_appellee_defense(self, case: Dict[str, Any]) -> str:
+    def extract_second_instance_appellee_defense(self, case: dict[str, Any]) -> str:
         """Extract appellee defense from second-instance data."""
         second_instance = self._extract_instance_mapping(case, "second_instance")
         appellee_defense = second_instance.get("appellee_defense", {})
         return self._extract_text(appellee_defense, "defense", "plea")
 
-    def extract_evidence_disputes(self, case: Dict[str, Any], side: str = "plaintiff") -> str:
+    def extract_evidence_disputes(self, case: dict[str, Any], side: str = "plaintiff") -> str:
         """Extract disputes regarding a specific side's evidence.
         
         Args:
@@ -730,10 +729,10 @@ class DataLoader:
         """
         first_instance = self._extract_instance_mapping(case, "first_instance")
         evidence = self._as_mapping(first_instance.get("evidence", {}))
-        
+
         target_key = "plaintiff_evidence" if side == "plaintiff" else "defendant_evidence"
         target_evidence = self._as_mapping(evidence.get(target_key, {}))
-        
+
         dispute_items = []
         for key, value in target_evidence.items():
             if isinstance(value, dict):
@@ -741,12 +740,12 @@ class DataLoader:
                 dispute = value.get("dispute", "")
                 if dispute:
                     dispute_items.append(f"针对证据【{content}】的质证意见：{dispute}")
-        
+
         if dispute_items:
             return "\n".join(f"{i+1}. {item}" for i, item in enumerate(dispute_items))
         return "暂无明确质证意见"
 
-    def extract_second_instance_evidence(self, case: Dict[str, Any], side: str = "appellant") -> str:
+    def extract_second_instance_evidence(self, case: dict[str, Any], side: str = "appellant") -> str:
         """Extract second-instance new evidence for the given side."""
         second_instance = self._extract_instance_mapping(case, "second_instance")
         new_evidence = self._as_mapping(second_instance.get("new_evidence", {}))
@@ -762,7 +761,7 @@ class DataLoader:
             return "\n".join(f"{i+1}. {e}" for i, e in enumerate(evidence_items))
         return ""
 
-    def extract_second_instance_evidence_disputes(self, case: Dict[str, Any], side: str = "appellant") -> str:
+    def extract_second_instance_evidence_disputes(self, case: dict[str, Any], side: str = "appellant") -> str:
         """Extract disputes for second-instance new evidence."""
         second_instance = self._extract_instance_mapping(case, "second_instance")
         new_evidence = self._as_mapping(second_instance.get("new_evidence", {}))
@@ -781,7 +780,7 @@ class DataLoader:
             return "\n".join(f"{i+1}. {item}" for i, item in enumerate(dispute_items))
         return "暂无明确质证意见"
 
-    def extract_all_second_instance_evidence(self, case: Dict[str, Any]) -> str:
+    def extract_all_second_instance_evidence(self, case: dict[str, Any]) -> str:
         """Extract all second-instance new evidence."""
         second_instance = self._extract_instance_mapping(case, "second_instance")
         new_evidence = self._as_mapping(second_instance.get("new_evidence", {}))
@@ -800,7 +799,7 @@ class DataLoader:
             return "\n".join(f"{i+1}. {item}" for i, item in enumerate(evidence_items))
         return ""
 
-    def extract_all_second_instance_evidence_disputes(self, case: Dict[str, Any]) -> str:
+    def extract_all_second_instance_evidence_disputes(self, case: dict[str, Any]) -> str:
         """Extract disputes for all second-instance new evidence."""
         second_instance = self._extract_instance_mapping(case, "second_instance")
         new_evidence = self._as_mapping(second_instance.get("new_evidence", {}))
@@ -822,7 +821,7 @@ class DataLoader:
             return "\n".join(f"{i+1}. {item}" for i, item in enumerate(dispute_items))
         return "暂无明确质证意见"
 
-    def extract_all_evidence_disputes(self, case: Dict[str, Any]) -> str:
+    def extract_all_evidence_disputes(self, case: dict[str, Any]) -> str:
         """Extract disputes for all first-instance evidence."""
         first_instance = self._extract_instance_mapping(case, "first_instance")
         evidence = self._as_mapping(first_instance.get("evidence", {}))
@@ -844,7 +843,7 @@ class DataLoader:
             return "\n".join(f"{i+1}. {item}" for i, item in enumerate(dispute_items))
         return "暂无明确质证意见"
 
-    def extract_appellant_appeal(self, case: Dict[str, Any]) -> Dict[str, Any]:
+    def extract_appellant_appeal(self, case: dict[str, Any]) -> dict[str, Any]:
         """Extract appellant appeal info (claim and reasons) from case data.
         
         Args:
@@ -855,7 +854,7 @@ class DataLoader:
         """
         second_instance = self._extract_instance_mapping(case, "second_instance")
         appellant_claim = self._as_mapping(second_instance.get("appellant_claim", {}))
-        
+
         return {
             "claim": appellant_claim.get("claim", []),
             "reasons": appellant_claim.get("reasons", ""),

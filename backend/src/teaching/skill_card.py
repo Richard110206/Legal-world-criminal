@@ -63,6 +63,8 @@ def _weak_capabilities(event: dict[str, Any], ceiling: float = 0.6) -> list[dict
     for code, entry in (event.get("capability_scores") or {}).items():
         if not isinstance(entry, dict):
             continue
+        if entry.get("score") is None:
+            continue  # 弃权维（judge 未评）不得当作 0 分出卡
         try:
             score = float(entry.get("score") or 0.0)
         except (TypeError, ValueError):

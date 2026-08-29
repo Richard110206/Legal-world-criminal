@@ -12,7 +12,6 @@ from camel.toolkits import FunctionTool
 
 from src.utils.file_io import DEFAULT_DATASET_PATH, map_eval_stage_code, stage_label, write_json
 
-
 BENCHMARK_EVAL_TOOL_NAME = "run_case_benchmark_evaluation"
 _PARTY_ROLE_ALIASES = {
     "原告": "plaintiff",

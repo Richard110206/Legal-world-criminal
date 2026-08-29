@@ -4,7 +4,7 @@ import json
 import os
 import sys
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +56,8 @@ def configure_utf8_stdio() -> None:
 
 
 def utc_timestamp() -> str:
-    return datetime.now().isoformat()
+    """Timezone-aware UTC ISO 8601 timestamp (stable across machines)."""
+    return datetime.now(UTC).isoformat()
 
 
 def timestamp_tag() -> str:
@@ -68,7 +69,7 @@ def safe_read_json(path: str | Path, default: Any = None) -> Any:
     if not filepath.exists():
         return default
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return default

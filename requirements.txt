@@ -1,32 +1,34 @@
+# Runtime dependencies (managed in pyproject.toml; this file is kept for
+# Docker builds and pip compatibility). NOTE: pathlib is part of the stdlib —
+# never install the deprecated PyPI package.
 
-
-# 核心 AI 框架 
+# LLM / agent framework
 camel-ai>=0.1.5.4
 openai>=1.0.0
 
-# 文书生成
+# Document generation
 docxtpl>=0.16.7
 python-docx>=1.1.0
 jinja2>=3.1.2
 reportlab>=4.2.0
 
-# Web 框架与 API
+# Web server / API
 fastapi>=0.100.0
 uvicorn[standard]>=0.22.0
 websockets>=11.0
 python-multipart>=0.0.6
 pydantic>=2.0.0
+pydantic-settings>=2.0.0
 
-# 系统工具
+# System utilities
 python-dotenv>=1.0.1
 pyyaml>=6.0
-pathlib>=1.0.1
 tqdm>=4.66.0
 numpy>=1.26.0
 requests>=2.31.0
-pymupdf>=1.24.0  # 法条 PDF → legal_corpus/processed JSONL（教学法条库构建）
+pymupdf>=1.24.0  # PDF -> legal_corpus/processed JSONL, teaching gold extraction
 
-# 数据库与认证
+# Database / auth
 SQLAlchemy>=2.0.0
 psycopg[binary]>=3.2.0
 PyJWT>=2.8.0

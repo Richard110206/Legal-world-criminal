@@ -21,9 +21,10 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional
+from typing import Any
 
 from .models import PlayerLawyerRequest, PlayerRequestStatus
 
@@ -59,8 +60,8 @@ class PlayerInputGateway:
     def __init__(
         self,
         sandbox_id: int = 0,
-        persist_fn: Optional[Callable[[PlayerLawyerRequest], None]] = None,
-        timeout_seconds: Optional[float] = None,
+        persist_fn: Callable[[PlayerLawyerRequest], None] | None = None,
+        timeout_seconds: float | None = None,
         ledger: Any | None = None,
         storage_root: Path | str | None = None,
     ) -> None:
@@ -117,7 +118,7 @@ class PlayerInputGateway:
     def wait_for_response(
         self,
         request_id: str,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> str:
         """Block until the request is resolved; return the player message.
 
@@ -238,7 +239,7 @@ class PlayerInputGateway:
 
     def list_pending(
         self,
-        case_id: Optional[str] = None,
+        case_id: str | None = None,
     ) -> list[PlayerLawyerRequest]:
         """Return all pending requests, optionally filtered by case_id."""
         with self._lock:
@@ -251,7 +252,7 @@ class PlayerInputGateway:
             results = [r for r in results if r.case_id == case_id]
         return results
 
-    def get_request(self, request_id: str) -> Optional[PlayerLawyerRequest]:
+    def get_request(self, request_id: str) -> PlayerLawyerRequest | None:
         with self._lock:
             return self._requests.get(request_id)
 
@@ -261,7 +262,7 @@ class PlayerInputGateway:
         case_id: str,
         stage: str,
         prompt: str,
-    ) -> Optional[PlayerLawyerRequest]:
+    ) -> PlayerLawyerRequest | None:
         """Find an existing pending/submitted request for the same player turn."""
         normalized_prompt = str(prompt or "").strip()
         with self._lock:
@@ -385,7 +386,7 @@ def load_json_requests(base_dir: Path) -> list[PlayerLawyerRequest]:
 
     for filepath in sorted(base_dir.glob("*/_player_lawyer/*.json")):
         try:
-            with open(filepath, "r", encoding="utf-8") as fh:
+            with open(filepath, encoding="utf-8") as fh:
                 payload = json.load(fh)
         except Exception as exc:
             logger.warning("[PlayerGateway] Failed to load %s: %s", filepath, exc)

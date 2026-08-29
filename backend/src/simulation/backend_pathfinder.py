@@ -31,7 +31,7 @@ class BackendPathfinder:
 
     def __init__(self, map_json_path: str | Path):
         self.map_json_path = Path(map_json_path)
-        with open(self.map_json_path, "r", encoding="utf-8") as f:
+        with open(self.map_json_path, encoding="utf-8") as f:
             map_data = json.load(f)
 
         self.tile_width = int(map_data.get("tilewidth", 16) or 16)

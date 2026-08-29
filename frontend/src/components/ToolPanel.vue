@@ -75,12 +75,6 @@ const toolCalls = computed<ToolCallEntry[]>(() => {
 /** 展示最近 N 条（面板内可滚动） */
 const displayCalls = computed(() => toolCalls.value.slice(-40));
 
-const currentStageTools = computed(() => {
-  const calls = toolCalls.value;
-  if (!calls.length) return [];
-  return calls[calls.length - 1].tools;
-});
-
 function stamp(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-GB", { hour12: false });
 }

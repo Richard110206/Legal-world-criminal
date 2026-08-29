@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import StringIO
 from typing import Any
 
@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from src.core.models import HumanEvalAssignment, HumanEvalRating, User
 from src.human_eval.materials import HumanEvalMaterials
 from src.human_eval.schemas import ROLE_METRICS, SCORABLE_STAGES, STAGE_METRICS, HumanEvalRatingPayload
-
 
 DEFAULT_ASSIGNMENT_BATCH_SIZE = 10
 
@@ -87,7 +86,7 @@ class HumanEvalService:
             return active
         if active is not None:
             active.status = "completed"
-            active.completed_at = datetime.now(timezone.utc)
+            active.completed_at = datetime.now(UTC)
             session.flush()
 
         next_batch_number = self._next_assignment_batch_number(session=session, user=user)
@@ -161,7 +160,7 @@ class HumanEvalService:
 
     @staticmethod
     def _stable_case_rank(case_id: int, user_id: str) -> str:
-        return hashlib.sha256(f"{user_id}:{case_id}".encode("utf-8")).hexdigest()
+        return hashlib.sha256(f"{user_id}:{case_id}".encode()).hexdigest()
 
     def load_case(self, case_id: int) -> dict[str, Any]:
         return self.materials.load_case(case_id)
@@ -186,7 +185,7 @@ class HumanEvalService:
     ) -> HumanEvalRating:
         case = self.load_case(case_id)
         rating = self.get_rating(session, user, case_id)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         serialized_payload = payload.model_dump(mode="json")
         if rating is None:
             rating = HumanEvalRating(

@@ -46,6 +46,12 @@ ARTICLE_REF_FIELD_WEIGHT = 4.0
 # 的规定定罪处罚") in other articles must not outrank the article itself.
 EXACT_LABEL_BOOST = 3.0
 
+# Hybrid fusion: BM25 owns exact/term matching, dense cosine owns semantic
+# paraphrases ("喝酒撞死人" ≈ 交通肇事). BM25 stays dominant because statute
+# queries are mostly label/term-driven.
+HYBRID_BM25_WEIGHT = 0.7
+HYBRID_DENSE_WEIGHT = 0.3
+
 
 def _normalize_text(value: Any) -> str:
     return (
@@ -190,12 +196,19 @@ def clear_corpus_cache() -> None:
 def corpus_stats() -> dict[str, Any]:
     records = _load_corpus_records()
     counts: Counter = Counter(record.get("_source_title") or "" for record in records)
+    from . import law_embedding
+
+    vector_index = law_embedding.get_vector_index()
     return {
         "available": bool(records),
         "corpus_dir": str(LEGAL_CORPUS_DIR),
         "total_articles": len(records),
         "by_title": dict(counts),
-        "ranker": f"bm25(k1={BM25_K1}, b={BM25_B})",
+        "ranker": (
+            f"hybrid bm25(k1={BM25_K1}, b={BM25_B})+dense({vector_index.model})"
+            if vector_index.available
+            else f"bm25(k1={BM25_K1}, b={BM25_B})"
+        ),
     }
 
 
@@ -211,7 +224,12 @@ def _title_matches(record: dict[str, Any], title: str | None) -> bool:
 
 
 def search_law(query: str, top_k: int = 5, title: str | None = None) -> list[dict[str, Any]]:
-    """Retrieve most relevant statute articles for a query (BM25)."""
+    """Hybrid statute retrieval: BM25 (exact/term) + dense cosine (semantic).
+
+    Fusion: normalized BM25 ×0.7 + cosine ×0.3; exact article-label hits keep
+    the BM25 boost. Falls back to pure BM25 when the embedding layer or its
+    index is unavailable.
+    """
     query_text = str(query or "").strip()
     if not query_text:
         return []
@@ -224,9 +242,19 @@ def search_law(query: str, top_k: int = 5, title: str | None = None) -> list[dic
     if index is None:
         return []
 
+    from . import law_embedding
+
+    vector_index = law_embedding.get_vector_index()
+    dense_sims: list[float] | None = None
+    if vector_index.available:
+        sims = vector_index.similarity_scores(query_text)
+        if sims is not None and len(sims) == len(records):
+            dense_sims = sims
+
     query_tokens = _tokenize(query_text)
     query_label = _ARTICLE_LABEL_RE.search(_normalize_text(query_text))
-    scored: list[tuple[float, int, dict[str, Any]]] = []
+
+    raw_bm25: dict[int, float] = {}
     for doc_idx, record in enumerate(records):
         if not _title_matches(record, title):
             continue
@@ -235,13 +263,39 @@ def search_law(query: str, top_k: int = 5, title: str | None = None) -> list[dic
             normalized_ref = _normalize_text(record.get("_article_ref") or "")
             if query_label.group(0) in normalized_ref:
                 score *= EXACT_LABEL_BOOST
-        if score <= 0.0:
+        if score > 0.0:
+            raw_bm25[doc_idx] = score
+
+    # candidate pool = BM25 hits ∪ top-50 dense hits (BM25 misses semantic
+    # paraphrases; dense alone can float boilerplate — the union keeps both)
+    candidates: set[int] = set(raw_bm25)
+    if dense_sims is not None:
+        dense_ranked = sorted(
+            range(len(records)), key=lambda i: dense_sims[i], reverse=True
+        )[:50]
+        candidates.update(dense_ranked)
+    if not candidates:
+        return []
+
+    bm25_values = [raw_bm25.get(i, 0.0) for i in candidates] or [0.0]
+    bm25_max = max(bm25_values)
+
+    scored: list[tuple[float, int, dict[str, Any], float]] = []
+    for doc_idx in candidates:
+        record = records[doc_idx]
+        if not _title_matches(record, title):
             continue
-        scored.append((score, doc_idx, record))
+        bm25_norm = (raw_bm25.get(doc_idx, 0.0) / bm25_max) if bm25_max > 0 else 0.0
+        dense = dense_sims[doc_idx] if dense_sims is not None else 0.0
+        score = HYBRID_BM25_WEIGHT * bm25_norm + HYBRID_DENSE_WEIGHT * max(dense, 0.0)
+        if raw_bm25.get(doc_idx, 0.0) <= 0.0 and dense <= 0.0:
+            continue
+        scored.append((score, doc_idx, record, bm25_norm))
 
     scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    backend = "hybrid_bm25_dense" if dense_sims is not None else "bm25"
     results: list[dict[str, Any]] = []
-    for score, _doc_idx, record in scored[: max(1, top_k)]:
+    for score, _doc_idx, record, bm25_norm in scored[: max(1, top_k)]:
         results.append(
             {
                 "source_title": record.get("_source_title") or "",
@@ -249,6 +303,8 @@ def search_law(query: str, top_k: int = 5, title: str | None = None) -> list[dic
                 "content": record.get("_content") or "",
                 "category": record.get("category") or "",
                 "score": round(score, 4),
+                "bm25_score": round(bm25_norm, 4),
+                "retrieval_backend": backend,
             }
         )
     return results

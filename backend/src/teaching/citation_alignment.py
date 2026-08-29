@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Citation-sentence alignment verification (NLI dual-layer).
 
 Implements the syllogism-inspired evaluation from CitaLaw (arXiv 2412.14556):
@@ -26,7 +25,8 @@ import json
 import logging
 import re
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class _NLIModel:
     0=contradiction, 1=neutral, 2=entailment. Verified per-model at load.
     """
 
-    _instance: "_NLIModel | None" = None
+    _instance: _NLIModel | None = None
     _lock = threading.Lock()
 
     def __init__(self) -> None:
@@ -133,7 +133,7 @@ class _NLIModel:
         self._load_error = ""
 
     @classmethod
-    def get(cls) -> "_NLIModel":
+    def get(cls) -> _NLIModel:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:

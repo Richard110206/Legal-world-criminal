@@ -8,16 +8,16 @@ Pipeline mode uses create_for_pipeline() which creates and immediately activates
 """
 
 import copy
+import inspect
 import json
 import logging
 import re
 import sys
 import time
-import inspect
-from typing import Any, Dict, Optional, TYPE_CHECKING
 from abc import ABC
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
 from camel.agents import ChatAgent
 from camel.messages import BaseMessage
@@ -26,19 +26,17 @@ from camel.toolkits import FunctionTool
 from camel.types import ModelPlatformType, ModelType
 from pydantic import BaseModel
 
-from ..utils.model_config import (
-    DEFAULT_RUNTIME_OPENAI_MODEL,
-    build_runtime_openai_chat_config,
-    resolve_openai_chat_model,
-)
-from ..utils.model_config import (
-    _resolve_agent_api_base_url,
-    _resolve_agent_api_key,
-    _resolve_agent_model_type,
-)
 from ..utils.chat_agent_runtime_patch import (
     patch_chat_agent_usage_cache,
     patch_chat_agent_usage_serialization,
+)
+from ..utils.model_config import (
+    DEFAULT_RUNTIME_OPENAI_MODEL,
+    _resolve_agent_api_base_url,
+    _resolve_agent_api_key,
+    _resolve_agent_model_type,
+    build_runtime_openai_chat_config,
+    resolve_openai_chat_model,
 )
 from ..utils.runtime_flags import system_prompt_print_enabled
 
@@ -182,13 +180,13 @@ def _extract_tool_call_result_text(record: Any) -> str:
     return ""
 
 
-def _parse_retrieval_hit_line(line: str) -> Optional[Dict[str, str]]:
+def _parse_retrieval_hit_line(line: str) -> dict[str, str] | None:
     """Parse one numbered hit line like '1. 法规：刑法；条：第二百六十四条；…'."""
     text = str(line or "").strip()
     if not re.match(r"^\d+\.\s*\S", text):
         return None
     cleaned = re.sub(r"^\d+\.\s*", "", text)
-    parts: Dict[str, str] = {}
+    parts: dict[str, str] = {}
     leftover: list[str] = []
     for segment in re.split(r"[；;]", cleaned):
         segment = segment.strip()
@@ -211,7 +209,7 @@ def _parse_retrieval_hit_line(line: str) -> Optional[Dict[str, str]]:
         title = leftover[0] if leftover else ""
     if not title:
         return None
-    hit: Dict[str, str] = {"title": title}
+    hit: dict[str, str] = {"title": title}
     if parts.get("条") or parts.get("条号"):
         hit["article"] = parts.get("条") or parts.get("条号") or ""
     if parts.get("效力"):
@@ -223,9 +221,9 @@ def _parse_retrieval_hit_line(line: str) -> Optional[Dict[str, str]]:
     return hit
 
 
-def _build_retrieval_events(tool_calls: Any) -> list[Dict[str, Any]]:
+def _build_retrieval_events(tool_calls: Any) -> list[dict[str, Any]]:
     """Extract structured retrieval events (query + hits) for frontend display."""
-    events: list[Dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
     for record in list(tool_calls or []):
         tool_name = _extract_tool_call_name(record)
         if tool_name not in RETRIEVAL_TOOL_NAMES:
@@ -238,7 +236,7 @@ def _build_retrieval_events(tool_calls: Any) -> list[Dict[str, Any]]:
         if not query and tool_name == "check_citations":
             query = "引用核验"
         result_text = _extract_tool_call_result_text(record)
-        hits: list[Dict[str, str]] = []
+        hits: list[dict[str, str]] = []
         for line in result_text.splitlines():
             stripped = line.strip()
             if hits and (stripped.startswith("内容：") or stripped.startswith("摘要：")):
@@ -330,14 +328,14 @@ class BaseAgent(ABC):
         agent_id: str,
         name: str,
         system_prompt: str = "",
-        work_memory_path: Optional[str] = None,
+        work_memory_path: str | None = None,
         model_platform: ModelPlatformType = ModelPlatformType.OPENAI,
-        model_type: Optional[str] = None,  # Changed to Optional[str] for DeepSeek compatibility
-        tools: Optional[list] = None,
-        skill_dirs: Optional[list[str]] = None,
+        model_type: str | None = None,  # Changed to Optional[str] for DeepSeek compatibility
+        tools: list | None = None,
+        skill_dirs: list[str] | None = None,
         event_bus: Optional["EventBus"] = None,
         storage: Optional["FileStorageManager"] = None,
-        config_path: Optional[str] = None,
+        config_path: str | None = None,
         **kwargs
     ):
         self.agent_id = agent_id
@@ -361,17 +359,17 @@ class BaseAgent(ABC):
         )
 
         # Shell mode: no LLM by default
-        self.chat_agent: Optional[ChatAgent] = None
+        self.chat_agent: ChatAgent | None = None
         self._is_active = False
-        self.current_scenario_id: Optional[str] = None  # Track current scenario participation
-        self._last_step_info: Dict[str, Any] = {}
+        self.current_scenario_id: str | None = None  # Track current scenario participation
+        self._last_step_info: dict[str, Any] = {}
         self._last_tool_call_records: list[Any] = []
-        self._simlaw_step_guard_state: Dict[str, Any] = {}
+        self._simlaw_step_guard_state: dict[str, Any] = {}
         self._simlaw_step_guard_counter: int = 0
         self._simlaw_runtime_tech_callback = kwargs.pop("runtime_tech_callback", None)
 
         # Work memory
-        self.work_memory: Dict[str, Any] = {}
+        self.work_memory: dict[str, Any] = {}
         if work_memory_path:
             self._load_work_memory(work_memory_path)
 
@@ -392,13 +390,13 @@ class BaseAgent(ABC):
     def activate(
         self,
         system_prompt: str,
-        model_platform: Optional[ModelPlatformType] = None,
-        model_type: Optional[str] = None,  # Changed to Optional[str] for DeepSeek compatibility
-        tools: Optional[list] = None,
-        skill_dirs: Optional[list] = None,
-        debug_output_dir: Optional[str] = None,
-        scenario_id: Optional[str] = None,
-        step_timeout_seconds: Optional[int] = None,
+        model_platform: ModelPlatformType | None = None,
+        model_type: str | None = None,  # Changed to Optional[str] for DeepSeek compatibility
+        tools: list | None = None,
+        skill_dirs: list | None = None,
+        debug_output_dir: str | None = None,
+        scenario_id: str | None = None,
+        step_timeout_seconds: int | None = None,
     ) -> None:
         """Create the underlying ChatAgent with LLM. Called when entering a scenario.
 
@@ -537,7 +535,7 @@ class BaseAgent(ABC):
         self.tools = [tool for tool in self.tools if tool.get_function_name() not in blocked]
         logger.info("[%s] Removed runtime tools: %s", self.name, names)
 
-    def replace_runtime_skills(self, skill_dirs: Optional[list[str]] = None) -> None:
+    def replace_runtime_skills(self, skill_dirs: list[str] | None = None) -> None:
         """Replace the active skill directories and rebuild the load_skill tool."""
         chat_agent = self._require_active_chat_agent()
         del chat_agent
@@ -569,8 +567,8 @@ class BaseAgent(ABC):
             output_dir: Directory to save debug files
         """
         import json
-        from pathlib import Path
         from datetime import datetime
+        from pathlib import Path
 
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
@@ -630,7 +628,7 @@ class BaseAgent(ABC):
     def reset_skill_usage_report(self) -> None:
         self.skill_usage_log = []
 
-    def get_skill_usage_report(self) -> Dict[str, Any]:
+    def get_skill_usage_report(self) -> dict[str, Any]:
         summary_by_skill: dict[tuple[str, str, str], dict[str, Any]] = {}
         total_skills_loaded = 0
 
@@ -783,9 +781,9 @@ class BaseAgent(ABC):
     def step(
         self,
         instruction: str,
-        response_format: Optional[type[BaseModel]] = None,
-        image_list: Optional[list[str]] = None,
-        context: Optional[dict[str, Any]] = None,
+        response_format: type[BaseModel] | None = None,
+        image_list: list[str] | None = None,
+        context: dict[str, Any] | None = None,
     ) -> str:
         """Execute one step of agent interaction. Requires active mode."""
         if not self._is_active or not self.chat_agent:
@@ -851,7 +849,7 @@ class BaseAgent(ABC):
         self._emit_runtime_tech_usage()
         return response_content
 
-    def build_runtime_tech_usage_payload(self, *, case_id: str = "") -> Dict[str, Any]:
+    def build_runtime_tech_usage_payload(self, *, case_id: str = "") -> dict[str, Any]:
         """Build a frontend runtime-progress payload from the last completed step."""
         tool_names = _dedupe_strings(
             _extract_tool_call_name(record)
@@ -876,7 +874,7 @@ class BaseAgent(ABC):
             or str(getattr(self, "_simlaw_stage_code", "") or "").strip().upper()
             or str(getattr(self, "scenario_type", "") or "").strip().upper()
         )
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "phase": RUNTIME_TECH_PROGRESS_PHASE,
             "message": "工具/技能已调用",
             "detail": str(getattr(self, "name", "") or getattr(self, "agent_id", "") or "").strip(),
@@ -915,7 +913,7 @@ class BaseAgent(ABC):
             logger.warning("[%s] Failed to emit runtime tech usage: %s", self.name, exc)
 
     @staticmethod
-    def _extract_json_object_from_text(text: Any) -> Dict[str, Any]:
+    def _extract_json_object_from_text(text: Any) -> dict[str, Any]:
         if isinstance(text, dict):
             return text
 
@@ -940,11 +938,11 @@ class BaseAgent(ABC):
         self,
         *,
         memory_owner: str,
-        existing_memory: Optional[Dict[str, Any]] = None,
+        existing_memory: dict[str, Any] | None = None,
         scenario_type: str = "",
         party_role: str = "",
-        max_messages: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        max_messages: int | None = None,
+    ) -> dict[str, Any]:
         """Deprecated: long-term memory flow now lives in role-specific agents."""
         del memory_owner, existing_memory, scenario_type, party_role, max_messages
         raise NotImplementedError(
@@ -955,11 +953,11 @@ class BaseAgent(ABC):
         self,
         *,
         memory_owner: str,
-        existing_memory: Optional[Dict[str, Any]] = None,
+        existing_memory: dict[str, Any] | None = None,
         scenario_type: str = "",
         party_role: str = "",
-        max_messages: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        max_messages: int | None = None,
+    ) -> dict[str, Any]:
         """Deprecated: long-term memory flow now lives in role-specific agents."""
         del memory_owner, existing_memory, scenario_type, party_role, max_messages
         raise NotImplementedError(
@@ -972,7 +970,7 @@ class BaseAgent(ABC):
             self.chat_agent.reset()
             logger.info(f"Agent '{self.name}' memory reset")
 
-    def get_prompt_info(self) -> Dict[str, Any]:
+    def get_prompt_info(self) -> dict[str, Any]:
         """Get agent's prompt information for debugging and export."""
         return {
             "agent_id": self.agent_id,
@@ -985,7 +983,7 @@ class BaseAgent(ABC):
 
     def _load_work_memory(self, filepath: str) -> None:
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, encoding='utf-8') as f:
                 self.work_memory = json.load(f)
             logger.info(f"Agent '{self.name}' loaded work memory from {filepath}")
         except FileNotFoundError:
@@ -1039,7 +1037,7 @@ class BaseAgent(ABC):
             from camel.types import OpenAIBackendRole, RoleType
 
             loaded_count = 0
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line:

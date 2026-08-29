@@ -7,8 +7,9 @@
 """
 
 import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, Optional, Set
+from typing import Any
 
 from ..core.event_bus import EventBus, EventType
 from ..core.file_storage_manager import FileStorageManager
@@ -54,7 +55,7 @@ class CaseState:
 
 
 # 合法状态迁移图：(当前状态) -> {可达的下一状态集合}
-VALID_TRANSITIONS: Dict[str, Set[str]] = {
+VALID_TRANSITIONS: dict[str, set[str]] = {
     # ── 刑事入口：委托洽谈 ──
     CaseState.IDLE: {CaseState.WAITING_FOR_RECEPTION},
     CaseState.WAITING_FOR_RECEPTION: {CaseState.PLAINTIFF_CONSULTATION},
@@ -105,7 +106,7 @@ VALID_TRANSITIONS: Dict[str, Set[str]] = {
     CaseState.CLOSED: set(),  # 终态，无后续
 }
 
-SHARED_CASE_STATES: Set[str] = {
+SHARED_CASE_STATES: set[str] = {
     # ── 刑事共享阶段（双方状态同步）──
     CaseState.INVESTIGATION,
     CaseState.PROSECUTION_REVIEW,
@@ -179,7 +180,7 @@ class CaseStateMachine:
                 priority=100,
             )
 
-    def _make_handler(self, event_type: EventType, default_next: Optional[str]):
+    def _make_handler(self, event_type: EventType, default_next: str | None):
         """为每个事件创建处理器闭包。"""
 
         async def handler(payload: dict):
@@ -432,6 +433,6 @@ class CaseStateMachine:
         return next_state in valid_next
 
     @staticmethod
-    def get_valid_next_states(current: str) -> Set[str]:
+    def get_valid_next_states(current: str) -> set[str]:
         """获取当前状态的所有合法后续状态。"""
         return VALID_TRANSITIONS.get(current, set())

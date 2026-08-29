@@ -7,11 +7,11 @@ scenarios inherit from.
 import inspect
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from .pause_control import get_runtime_pause_controller
-
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +21,16 @@ class BaseScenario(ABC):
 
     def __init__(
         self,
-        agents: Dict[str, Any],
+        agents: dict[str, Any],
         max_turns: int = 99,
         verbose: bool = False,
-        map_engine: Optional[Any] = None,
-        checkpoint_manager: Optional[Any] = None,
-        scenario_id: Optional[str] = None,
-        bubble_publisher: Optional[Callable[[str, str], None]] = None,
-        trace_recorder: Optional[Any] = None,
-        trace_stage_code: Optional[str] = None,
-        trace_stage_key: Optional[str] = None,
+        map_engine: Any | None = None,
+        checkpoint_manager: Any | None = None,
+        scenario_id: str | None = None,
+        bubble_publisher: Callable[[str, str], None] | None = None,
+        trace_recorder: Any | None = None,
+        trace_stage_code: str | None = None,
+        trace_stage_key: str | None = None,
     ):
         self.agents = agents
         self.max_turns = max_turns
@@ -43,12 +43,12 @@ class BaseScenario(ABC):
         self.trace_stage_code = str(trace_stage_code or "").strip().upper()
         self.trace_stage_key = str(trace_stage_key or trace_stage_code or "").strip().upper()
 
-        self.dialog_history: List[Dict[str, Any]] = []
+        self.dialog_history: list[dict[str, Any]] = []
         self.turn_count = 0
         self.completed = False
 
     @abstractmethod
-    def execute(self) -> Dict[str, Any]:
+    def execute(self) -> dict[str, Any]:
         """Execute the scenario."""
 
     def _add_dialog(self, role: str, content: str) -> None:
@@ -183,9 +183,9 @@ class BaseScenario(ABC):
         logger.debug(f"[{self.__class__.__name__}] {message}")
 
     @abstractmethod
-    def _build_checkpoint_data(self) -> Dict[str, Any]:
+    def _build_checkpoint_data(self) -> dict[str, Any]:
         """Build checkpoint data for this scenario."""
 
     @abstractmethod
-    async def resume_from_checkpoint(self, checkpoint_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def resume_from_checkpoint(self, checkpoint_data: dict[str, Any]) -> dict[str, Any]:
         """Resume scenario execution from a checkpoint."""

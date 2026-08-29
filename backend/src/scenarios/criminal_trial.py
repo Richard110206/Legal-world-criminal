@@ -21,14 +21,14 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from .base_scenario import BaseScenario
 from ..tools.legal import (
     extract_judgment_document_tool_payload,
     get_judgment_document_type_for_scenario,
     render_judgment_document_payload,
 )
+from .base_scenario import BaseScenario
 
 logger = logging.getLogger(__name__)
 
@@ -92,16 +92,19 @@ class CriminalTrialScenario(BaseScenario):
         judge_agent: Any,
         prosecutor_agent: Any,
         defendant_agent: Any,
-        defense_lawyer_agent: Optional[Any] = None,
+        defense_lawyer_agent: Any | None = None,
         max_debate_rounds: int = 4,
         max_investigation_rounds: int = 5,
         verbose: bool = False,
         court_finding: str = "",
         court_opinion: str = "",
-        output_path: Optional[str] = None,
+        output_path: str | None = None,
+        case_charge: str = "",
+        case_source_title: str = "",
+        max_prosecutor_challenges: int = 2,
         **kwargs,
     ):
-        agents: Dict[str, Any] = {
+        agents: dict[str, Any] = {
             "judge": judge_agent,
             "prosecutor": prosecutor_agent,
             "defendant": defendant_agent,
@@ -115,20 +118,24 @@ class CriminalTrialScenario(BaseScenario):
         self.court_finding = court_finding
         self.court_opinion = court_opinion
         self.output_path = output_path
+        self.case_charge = case_charge
+        self.case_source_title = case_source_title
+        self.max_prosecutor_challenges = max(0, int(max_prosecutor_challenges))
+        self._prosecutor_challenges_used = 0
         self.current_stage = "未开始"
-        self.stage_results: Dict[str, Any] = {}
-        self.final_judgment: Optional[str] = None
-        self._drafted_document_payload: Dict[str, str] = {}
+        self.stage_results: dict[str, Any] = {}
+        self.final_judgment: str | None = None
+        self._drafted_document_payload: dict[str, str] = {}
 
     # ── 基础设施（与 CI 相同的广播机制）────────────────────
     def _broadcast_message(
         self,
         sender_role: str,
         message: str,
-        exclude_roles: Optional[List[str]] = None,
+        exclude_roles: list[str] | None = None,
     ) -> None:
         from camel.messages import BaseMessage
-        from camel.types import RoleType, OpenAIBackendRole
+        from camel.types import OpenAIBackendRole, RoleType
 
         sender_label = self.ROLE_LABEL.get(sender_role, sender_role)
         broadcast_content = f"{sender_label}说：{message}"
@@ -158,7 +165,7 @@ class CriminalTrialScenario(BaseScenario):
         step_name: str,
         speaker_role: str,
         message: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         self.turn_count += 1
         self._log(f"[{self.current_stage}] {step_name}")
         self._add_dialog(speaker_role, message)
@@ -170,9 +177,9 @@ class CriminalTrialScenario(BaseScenario):
         step_name: str,
         instruction: str,
         speaker_role: str = "judge",
-        responder_role: Optional[str] = None,
-        responder_instruction: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        responder_role: str | None = None,
+        responder_instruction: str | None = None,
+    ) -> dict[str, Any]:
         self.turn_count += 1
         self._log(f"[{self.current_stage}] {step_name}")
 
@@ -213,9 +220,9 @@ class CriminalTrialScenario(BaseScenario):
     def _parse_judge_stage_control(
         self,
         message: str,
-        target_labels: Dict[str, str],
+        target_labels: dict[str, str],
         end_token: str,
-    ) -> Dict[str, Optional[str]]:
+    ) -> dict[str, str | None]:
         text = str(message or "").strip()
         if not text:
             return {"target_role": None, "end_stage": False}
@@ -231,18 +238,22 @@ class CriminalTrialScenario(BaseScenario):
         *,
         stage_name: str,
         opening_instruction: str,
-        target_labels: Dict[str, str],
+        target_labels: dict[str, str],
         initial_target_role: str,
         max_rounds: int,
         end_token: str,
         stage_goal: str,
         force_close_instruction: str,
-    ) -> List[Dict[str, Any]]:
-        results: List[Dict[str, Any]] = []
+        enable_challenges: bool = False,
+    ) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
         last_message = opening_instruction
-        last_target_role: Optional[str] = None
+        last_target_role: str | None = None
         allowed_labels = list(target_labels.keys())
         allowed_text = "、".join(allowed_labels)
+
+        def _challenge_budget_left() -> bool:
+            return self._prosecutor_challenges_used < self.max_prosecutor_challenges
 
         for round_index in range(1, max_rounds + 1):
             self.turn_count += 1
@@ -264,6 +275,28 @@ class CriminalTrialScenario(BaseScenario):
                 f"[阶段起始要求]\n{opening_instruction}\n\n"
                 f"[最近一轮法庭发言]\n{str(last_message or '')[-1200:] or '（本阶段刚开始）'}"
             )
+            # 对抗质询：辩护人刚发言且追问预算未耗尽 → 引导法官优先让公诉人质询
+            if (
+                enable_challenges
+                and last_target_role == "defense_lawyer"
+                and "prosecutor" in self.agents
+                and "defense_lawyer" in self.agents
+                and _challenge_budget_left()
+            ):
+                judge_prompt += (
+                    "\n\n[庭审提示] 辩护人刚作出发言。如其主张存在值得追问的漏洞"
+                    "（事实、证据、法律适用或量刑情节），优先以【对公诉人说】开头，"
+                    "要求公诉人针对性质询。"
+                )
+            elif (
+                enable_challenges
+                and last_target_role == "defense_lawyer"
+                and "prosecutor" in self.agents
+                and not _challenge_budget_left()
+            ):
+                judge_prompt += (
+                    "\n\n[庭审提示] 公诉人质询机会已用完，请推进辩论或收束本阶段。"
+                )
             self._check_pause_sync()
             judge_msg = self.agents["judge"].step(judge_prompt)
             parsed = self._parse_judge_stage_control(judge_msg, target_labels=target_labels, end_token=end_token)
@@ -272,16 +305,36 @@ class CriminalTrialScenario(BaseScenario):
             responder_role = parsed["target_role"] or (
                 initial_target_role if last_target_role is None else last_target_role
             )
+            challenge_active = bool(
+                enable_challenges
+                and responder_role == "prosecutor"
+                and last_target_role == "defense_lawyer"
+                and _challenge_budget_left()
+            )
+            # 预算耗尽后法官仍点名公诉人质询 → 确定性改路由给辩护人继续辩论
+            challenge_overridden = False
+            if (
+                enable_challenges
+                and responder_role == "prosecutor"
+                and last_target_role == "defense_lawyer"
+                and not _challenge_budget_left()
+                and "defense_lawyer" in self.agents
+            ):
+                responder_role = "defense_lawyer"
+                challenge_overridden = True
+
             exclude = [responder_role] if responder_role and not parsed["end_stage"] else None
             self._broadcast_message(sender_role="judge", message=judge_msg, exclude_roles=exclude)
 
-            step_result: Dict[str, Any] = {
+            step_result: dict[str, Any] = {
                 "step": step_name,
                 "speaker_message": judge_msg,
                 "responder_message": None,
                 "target_role": responder_role,
                 "end_stage": bool(parsed["end_stage"]),
             }
+            if challenge_overridden:
+                step_result["challenge_override"] = True
             results.append(step_result)
             if parsed["end_stage"]:
                 break
@@ -294,6 +347,21 @@ class CriminalTrialScenario(BaseScenario):
                 f"你现在是{role_label}，本轮回应审判长点名。"
                 "只直接回应审判长本轮要求，不要宣布流程，不要冒充审判长。"
             )
+            challenge_audit: dict[str, Any] | None = None
+            if challenge_active:
+                from .adversarial_grounding import build_challenge_block
+
+                prompt_block, challenge_audit = build_challenge_block(
+                    defense_statement=str(last_message or ""),
+                    charge=self.case_charge,
+                    exclude_title=self.case_source_title,
+                )
+                responder_prompt += f"\n\n{prompt_block}"
+                self._prosecutor_challenges_used += 1
+                step_result["adversarial_challenge"] = {
+                    **challenge_audit,
+                    "challenge_index": self._prosecutor_challenges_used,
+                }
             self._check_pause_sync()
             responder_msg = self.agents[str(responder_role)].step(responder_prompt)
             self._add_dialog(str(responder_role), responder_msg)
@@ -342,7 +410,7 @@ class CriminalTrialScenario(BaseScenario):
     def _execute_court_investigation(self) -> None:
         self.current_stage = "法庭调查"
         has_defense = "defense_lawyer" in self.agents
-        target_labels: Dict[str, str] = {"公诉人": "prosecutor"}
+        target_labels: dict[str, str] = {"公诉人": "prosecutor"}
         if has_defense:
             target_labels["辩护人"] = "defense_lawyer"
 
@@ -371,7 +439,7 @@ class CriminalTrialScenario(BaseScenario):
     def _execute_court_debate(self) -> None:
         self.current_stage = "法庭辩论"
         has_defense = "defense_lawyer" in self.agents
-        target_labels: Dict[str, str] = {"公诉人": "prosecutor"}
+        target_labels: dict[str, str] = {"公诉人": "prosecutor"}
         if has_defense:
             target_labels["辩护人"] = "defense_lawyer"
 
@@ -387,6 +455,7 @@ class CriminalTrialScenario(BaseScenario):
             end_token="【结束庭审辩论】",
             stage_goal="围绕罪名成立、证据采信、量刑情节和法律适用展开辩论。",
             force_close_instruction="请收束庭审辩论，宣布辩论终结。",
+            enable_challenges=True,
         )
         self.stage_results["debate"] = results
 
@@ -453,7 +522,7 @@ class CriminalTrialScenario(BaseScenario):
             logger.warning("[CR] Failed to backfill criminal judgment PDF: %s", exc)
 
     # ── 主流程 ────────────────────────────────────────────
-    def execute(self) -> Dict[str, Any]:
+    def execute(self) -> dict[str, Any]:
         self._log("开始执行刑事一审庭审场景")
         start_time = datetime.now()
 
@@ -474,7 +543,7 @@ class CriminalTrialScenario(BaseScenario):
             self._save_result(result)
         return result
 
-    def _build_result(self, duration: float = 0.0) -> Dict[str, Any]:
+    def _build_result(self, duration: float = 0.0) -> dict[str, Any]:
         return {
             "scenario_type": self.scenario_type,
             "dialog_history": self.dialog_history,
@@ -487,7 +556,7 @@ class CriminalTrialScenario(BaseScenario):
             "completed": self.completed,
         }
 
-    def _build_checkpoint_data(self) -> Dict[str, Any]:
+    def _build_checkpoint_data(self) -> dict[str, Any]:
         return {
             "dialog_history": self.dialog_history,
             "turn_count": self.turn_count,
@@ -498,7 +567,7 @@ class CriminalTrialScenario(BaseScenario):
             "drafted_document_payload": self._drafted_document_payload,
         }
 
-    async def resume_from_checkpoint(self, checkpoint_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def resume_from_checkpoint(self, checkpoint_data: dict[str, Any]) -> dict[str, Any]:
         self.dialog_history = checkpoint_data.get("dialog_history", [])
         self.turn_count = checkpoint_data.get("turn_count", 0)
         self.completed = checkpoint_data.get("completed", False)
@@ -510,7 +579,7 @@ class CriminalTrialScenario(BaseScenario):
             return self._build_result()
         return self.execute()
 
-    def _save_result(self, result: Dict[str, Any]) -> None:
+    def _save_result(self, result: dict[str, Any]) -> None:
         Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)

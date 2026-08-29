@@ -6,13 +6,12 @@
 
 import asyncio
 import json
-import re
 import logging
-from typing import Any, Dict, Optional
+import re
 from pathlib import Path
+from typing import Any
 
 from .base_scenario import BaseScenario
-
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +40,12 @@ class ReceptionScenario(BaseScenario):
         lawyer_roster: dict,
         preferred_lawyer_id: str = "",
         preferred_lawyer_name: str = "",
-        output_path: Optional[str] = None,
+        output_path: str | None = None,
         verbose: bool = False,
-        map_engine: Optional[Any] = None,
-        trace_recorder: Optional[Any] = None,
-        trace_stage_code: Optional[str] = None,
-        trace_stage_key: Optional[str] = None,
+        map_engine: Any | None = None,
+        trace_recorder: Any | None = None,
+        trace_stage_code: str | None = None,
+        trace_stage_key: str | None = None,
     ):
         agents = {
             "receptionist": receptionist_agent,
@@ -167,7 +166,7 @@ class ReceptionScenario(BaseScenario):
 
         return re.sub(r"(lawyer_\w+)", _repl, text)
 
-    async def execute(self) -> Dict[str, Any]:
+    async def execute(self) -> dict[str, Any]:
         """执行前台导引场景（异步）。"""
         receptionist = self.agents["receptionist"]
         client = self.agents["client"]
@@ -314,7 +313,7 @@ class ReceptionScenario(BaseScenario):
         logger.warning("[ReceptionScenario] 未能从推荐文本中提取 lawyer_id")
         return "", "unresolved"
 
-    def _build_result(self) -> Dict[str, Any]:
+    def _build_result(self) -> dict[str, Any]:
         return {
             "scenario_type": self.scenario_type,
             "matched_lawyer_id": self.matched_lawyer_id,
@@ -324,13 +323,13 @@ class ReceptionScenario(BaseScenario):
             "completed": self.completed,
         }
 
-    def _save_result(self, result: Dict[str, Any]) -> None:
+    def _save_result(self, result: dict[str, Any]) -> None:
         Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.output_path, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         self._log(f"结果已保存到 {self.output_path}")
 
-    def _build_checkpoint_data(self) -> Dict[str, Any]:
+    def _build_checkpoint_data(self) -> dict[str, Any]:
         """构建检查点数据。"""
         return {
             "scenario_type": self.scenario_type,
@@ -344,7 +343,7 @@ class ReceptionScenario(BaseScenario):
             "dialogue_sequence": self._dialogue_sequence,
         }
 
-    async def resume_from_checkpoint(self, checkpoint_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def resume_from_checkpoint(self, checkpoint_data: dict[str, Any]) -> dict[str, Any]:
         """从检查点恢复场景执行。
 
         前台导引场景通常很短（1轮），不需要复杂的恢复逻辑。

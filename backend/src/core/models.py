@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -33,10 +33,10 @@ class User(Base):
         onupdate=func.now(),
     )
 
-    credential: Mapped["UserCredential | None"] = relationship(back_populates="user", uselist=False)
-    sandbox: Mapped["Sandbox | None"] = relationship(back_populates="user", uselist=False)
-    human_eval_ratings: Mapped[list["HumanEvalRating"]] = relationship(back_populates="user")
-    human_eval_assignments: Mapped[list["HumanEvalAssignment"]] = relationship(back_populates="user")
+    credential: Mapped[UserCredential | None] = relationship(back_populates="user", uselist=False)
+    sandbox: Mapped[Sandbox | None] = relationship(back_populates="user", uselist=False)
+    human_eval_ratings: Mapped[list[HumanEvalRating]] = relationship(back_populates="user")
+    human_eval_assignments: Mapped[list[HumanEvalAssignment]] = relationship(back_populates="user")
 
 
 class UserCredential(Base):
@@ -84,7 +84,7 @@ class Sandbox(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="sandbox")
-    runtime_snapshot: Mapped["SandboxRuntimeSnapshot | None"] = relationship(
+    runtime_snapshot: Mapped[SandboxRuntimeSnapshot | None] = relationship(
         back_populates="sandbox",
         uselist=False,
     )

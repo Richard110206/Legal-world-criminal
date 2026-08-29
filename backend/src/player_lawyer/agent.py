@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 _PLAYER_MODE_ENV = "SIMLAW_PLAYER_LAWYER_MODE"
 
 
-def resolve_player_party_role() -> Optional[str]:
+def resolve_player_party_role() -> str | None:
     """返回玩家扮演的角色: 'defendant' | None（不启用）。
 
     纯刑事：只支持玩家扮演辩护律师（defendant）。
@@ -64,7 +65,7 @@ class PlayerLawyerAgent:
         gateway: Any,                                 # PlayerInputGateway
         case_id: str = "",
         sandbox_id: int = 0,
-        broadcast_fn: Optional[Callable[..., Any]] = None,
+        broadcast_fn: Callable[..., Any] | None = None,
     ) -> None:
         # Identity
         self.agent_id = agent_id
@@ -72,17 +73,17 @@ class PlayerLawyerAgent:
         self._party_role = "defendant"               # 固定为辩护律师
         self.law_firm = law_firm
         self.firm_id = firm_id
-        self.config_path: Optional[str] = None
+        self.config_path: str | None = None
         self.storage: Any = None
 
         # Scenario metadata
-        self.scenario_type: Optional[str] = None
-        self.scenario_data: Dict[str, Any] = {}
-        self.tools: List[Any] = []
-        self._last_tool_call_records: List[Any] = []
-        self.current_scenario_id: Optional[str] = None
+        self.scenario_type: str | None = None
+        self.scenario_data: dict[str, Any] = {}
+        self.tools: list[Any] = []
+        self._last_tool_call_records: list[Any] = []
+        self.current_scenario_id: str | None = None
         self.system_prompt: str = ""
-        self.skill_usage_log: List[Dict[str, Any]] = []
+        self.skill_usage_log: list[dict[str, Any]] = []
 
         # Player gateway
         self._gateway = gateway
@@ -115,7 +116,7 @@ class PlayerLawyerAgent:
         tools: Any = None,
         skill_dirs: Any = None,
         debug_output_dir: Any = None,
-        scenario_id: Optional[str] = None,
+        scenario_id: str | None = None,
         step_timeout_seconds: Any = None,
     ) -> None:
         self.system_prompt = system_prompt
@@ -136,7 +137,7 @@ class PlayerLawyerAgent:
     def reset_memory(self) -> None:
         pass
 
-    def get_prompt_info(self) -> Dict[str, Any]:
+    def get_prompt_info(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "agent_name": self.name,
@@ -145,7 +146,7 @@ class PlayerLawyerAgent:
             "party_role": self._party_role,
         }
 
-    def get_skill_usage_report(self) -> Dict[str, Any]:
+    def get_skill_usage_report(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "agent_name": self.name,
@@ -161,9 +162,9 @@ class PlayerLawyerAgent:
     # ── Long-term memory（no-ops for player）─────────────────────
     def extract_and_save_long_term_memory(
         self,
-        filepath: Optional[str] = None,
+        filepath: str | None = None,
         raise_on_error: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         return None
 
     # ── Core: step() blocks on player input ───────────────────────

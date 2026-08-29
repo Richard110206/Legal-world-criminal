@@ -14,10 +14,6 @@ const showPicker = computed(
   () => entries.value.length === 0 && !session.state.simulationRunning,
 );
 
-const modeLabel = computed(() =>
-  session.state.playerMode === "player" ? "扮演辩护律师" : "自动模拟",
-);
-
 const waitingGate = computed(() => session.state.waitingGate);
 const playerPanelVisible = computed(() => session.pendingPlayerRequest.value !== null);
 

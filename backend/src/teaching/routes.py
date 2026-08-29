@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -143,3 +144,24 @@ async def corpus_status() -> dict[str, Any]:
         "available": citation_check.corpus_available(),
         "stats": law_corpus.corpus_stats(),
     }
+
+
+@router.get("/scoring-tasks")
+async def scoring_task_snapshot() -> dict[str, Any]:
+    """Queue monitoring: persisted scoring jobs and their statuses."""
+    from .task_queue import get_scoring_queue
+
+    tasks = get_scoring_queue().snapshot()
+    by_status: dict[str, int] = {}
+    for task in tasks:
+        by_status[task["status"]] = by_status.get(task["status"], 0) + 1
+    return {"total": len(tasks), "by_status": by_status, "tasks": tasks}
+
+
+@router.post("/scoring-tasks/retry-failed")
+async def scoring_task_retry() -> dict[str, Any]:
+    """Re-queue all terminally failed scoring jobs (manual ops action)."""
+    from .task_queue import get_scoring_queue
+
+    retried = get_scoring_queue().retry_failed()
+    return {"success": True, "retried": retried}

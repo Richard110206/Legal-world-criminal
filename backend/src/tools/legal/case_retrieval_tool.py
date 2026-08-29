@@ -8,12 +8,12 @@ import os
 import re
 import time
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, Iterable
+from typing import Any
 
 from camel.toolkits import FunctionTool
-
 
 CASE_RETRIEVAL_TOOL_NAME = "search_cases"
 DEFAULT_TOP_K = 5
@@ -37,7 +37,7 @@ K1 = 1.5
 B = 0.75
 
 _CASE_TOOL_CACHE_LOCK = Lock()
-_CASE_TOOL_CACHE: dict[tuple[str], "LocalCaseRetrievalEngine"] = {}
+_CASE_TOOL_CACHE: dict[tuple[str], LocalCaseRetrievalEngine] = {}
 
 TITLE_SUFFIX_RE = re.compile(
     r"(?:一审|二审|再审|民事一审|民事二审|民事再审)?(?:民事)?(?:判决书|裁定书|调解书|决定书)$"
@@ -311,7 +311,7 @@ class LocalCaseRetrievalEngine:
             self._field_postings[field] = postings
 
     @classmethod
-    def from_jsonl(cls, path: str | Path) -> "LocalCaseRetrievalEngine":
+    def from_jsonl(cls, path: str | Path) -> LocalCaseRetrievalEngine:
         docs: list[dict[str, Any]] = []
         with Path(path).open("r", encoding="utf-8") as handle:
             for line in handle:
@@ -443,7 +443,7 @@ def create_case_search_function(
     return search_cases
 
 
-def _build_search_cases_schema() -> Dict[str, Any]:
+def _build_search_cases_schema() -> dict[str, Any]:
     return {
         "type": "function",
         "function": {

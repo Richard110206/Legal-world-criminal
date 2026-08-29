@@ -6,9 +6,8 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .base_agent import BaseAgent
 from ..pipeline.stage_tool_resolver import build_agent_default_tools
 from ..tools.common import normalize_skill_dirs
 from ..utils.live_card_memory import (
@@ -19,10 +18,10 @@ from ..utils.live_card_memory import (
     load_memory_for_agent,
     normalize_memory_payload,
 )
+from .base_agent import BaseAgent
 
 if TYPE_CHECKING:
-    from ..core.event_bus import EventBus
-    from ..core.file_storage_manager import FileStorageManager
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -32,7 +31,7 @@ LAWYER_MEMORY_NO_UPDATE = "LAWYER_MEMORY_NO_UPDATE"
 LAWYER_MEMORY_SAVE_DONE = "LAWYER_MEMORY_SAVE_DONE"
 
 
-def _normalize_memory_path(path: Optional[str]) -> Optional[str]:
+def _normalize_memory_path(path: str | None) -> str | None:
     raw = str(path or "").strip()
     if not raw:
         return None
@@ -43,7 +42,7 @@ def _normalize_memory_path(path: Optional[str]) -> Optional[str]:
     return os.path.join(raw, "memory.yaml")
 
 
-def _resolve_lawyer_config_dir(config_path: Any) -> Optional[Path]:
+def _resolve_lawyer_config_dir(config_path: Any) -> Path | None:
     raw = str(config_path or "").strip()
     if not raw:
         return None
@@ -76,7 +75,7 @@ def _sanitize_case_cause_component(value: Any) -> str:
     return cleaned
 
 
-def _case_cause_from_scenario_data(scenario_data: Optional[Dict[str, Any]]) -> str:
+def _case_cause_from_scenario_data(scenario_data: dict[str, Any] | None) -> str:
     if not isinstance(scenario_data, dict):
         return ""
     for key in ("case_cause", "cause", "case_type"):
@@ -89,7 +88,7 @@ def _case_cause_from_scenario_data(scenario_data: Optional[Dict[str, Any]]) -> s
 def _scope_extra_skill_dirs_by_case_cause(
     extra_dirs: list[str],
     *,
-    scenario_data: Optional[Dict[str, Any]] = None,
+    scenario_data: dict[str, Any] | None = None,
 ) -> list[str]:
     case_cause_dir = _case_cause_from_scenario_data(scenario_data)
     if not case_cause_dir:
@@ -112,10 +111,10 @@ def _experiment_gitskill_disabled() -> bool:
 
 # 教学技能卡注入：当前登录学生的技能卡目录（由 ws_server 按沙箱归属设置，
 # 避免 env 全局变量在多用户并发下串卡）
-_student_skill_card_dir: Optional[str] = None
+_student_skill_card_dir: str | None = None
 
 
-def set_student_skill_card_dir(path: Optional[str]) -> None:
+def set_student_skill_card_dir(path: str | None) -> None:
     global _student_skill_card_dir
     _student_skill_card_dir = str(path) if path else None
 
@@ -132,7 +131,7 @@ def _student_skill_card_dirs() -> list[str]:
 def _resolve_default_lawyer_skill_dirs(
     *,
     config_path: Any = None,
-    scenario_data: Optional[Dict[str, Any]] = None,
+    scenario_data: dict[str, Any] | None = None,
 ) -> list[str]:
     backend_dir = Path(__file__).resolve().parents[2]
     public_root = backend_dir / "legal-skillhub" / "public"
@@ -157,9 +156,9 @@ def _resolve_default_lawyer_skill_dirs(
 
 
 def _build_default_lawyer_tools(
-    agent: "LawyerAgent",
-    provided_tools: Optional[List[Any]] = None,
-) -> List[Any]:
+    agent: LawyerAgent,
+    provided_tools: list[Any] | None = None,
+) -> list[Any]:
     """Build the default toolset for lawyer agents."""
     return build_agent_default_tools("lawyer", agent, provided_tools=provided_tools)
 
@@ -171,16 +170,16 @@ class LawyerAgent(BaseAgent):
         self,
         agent_id: str,
         name: str,
-        specialty_areas: Optional[List[str]] = None,
+        specialty_areas: list[str] | None = None,
         law_firm: str = "",
-        firm_id: Optional[str] = None,
+        firm_id: str | None = None,
         system_prompt: str = "",
-        scenario_type: Optional[str] = None,
-        scenario_data: Optional[Dict[str, Any]] = None,
-        court_role: Optional[str] = None,
-        prompt_template_key: Optional[str] = None,
-        work_memory_path: Optional[str] = None,
-        long_term_memory_path: Optional[str] = None,
+        scenario_type: str | None = None,
+        scenario_data: dict[str, Any] | None = None,
+        court_role: str | None = None,
+        prompt_template_key: str | None = None,
+        work_memory_path: str | None = None,
+        long_term_memory_path: str | None = None,
         enable_long_term_memory: bool = True,
         **kwargs: Any,
     ) -> None:
@@ -229,7 +228,7 @@ class LawyerAgent(BaseAgent):
         self.memory_yaml_path = _normalize_memory_path(long_term_memory_path)
         self.enable_long_term_memory = enable_long_term_memory
 
-        self.legal_profile: Dict[str, Any] = get_empty_memory_payload(LAWYER_MEMORY_OWNER)
+        self.legal_profile: dict[str, Any] = get_empty_memory_payload(LAWYER_MEMORY_OWNER)
 
         if scenario_type and not system_prompt:
             system_prompt = self._build_pipeline_prompt()
@@ -259,7 +258,7 @@ class LawyerAgent(BaseAgent):
         """Build system prompt for pipeline mode using PromptAssembler."""
         from ..prompts.prompt_assembler import PromptAssembler
 
-        memory_payload: Optional[Dict[str, Any]] = None
+        memory_payload: dict[str, Any] | None = None
         if self.enable_long_term_memory:
             try:
                 memory_payload, _paths = load_memory_for_agent(self, LAWYER_MEMORY_OWNER)
@@ -328,7 +327,7 @@ class LawyerAgent(BaseAgent):
                 f"Agent '{self.name}' 缺少 memory tool: {missing}"
             )
 
-    def _last_memory_tool_failure(self) -> Optional[str]:
+    def _last_memory_tool_failure(self) -> str | None:
         for record in reversed(list(self._last_tool_call_records or [])):
             if isinstance(record, dict):
                 record_tool_name = str(
@@ -363,7 +362,7 @@ class LawyerAgent(BaseAgent):
                 return True
         return False
 
-    def _request_lawyer_memory_checkpoint(self) -> Dict[str, Any]:
+    def _request_lawyer_memory_checkpoint(self) -> dict[str, Any]:
         self._require_active_chat_agent()
         self._require_memory_tools_loaded()
         stage_code = (
@@ -406,9 +405,9 @@ class LawyerAgent(BaseAgent):
 
     def extract_and_save_long_term_memory(
         self,
-        filepath: Optional[str] = None,
+        filepath: str | None = None,
         raise_on_error: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Checkpoint helper: let the active lawyer decide whether to update memory.yaml."""
         try:
             if filepath:
@@ -425,14 +424,14 @@ class LawyerAgent(BaseAgent):
             return None
 
     @property
-    def current_handling_case(self) -> Optional[str]:
+    def current_handling_case(self) -> str | None:
         if not self.storage or not self.config_path:
             return None
         config = self.storage.load_agent_config(self.config_path)
         return config.get("current_handling_case")
 
     @property
-    def case_queue(self) -> List[str]:
+    def case_queue(self) -> list[str]:
         if not self.storage or not self.config_path:
             return []
         config = self.storage.load_agent_config(self.config_path)

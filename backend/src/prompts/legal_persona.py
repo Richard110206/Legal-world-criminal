@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 GLOBAL_LEGAL_PERSONA_PROMPT = (
     "你正在扮演一个真实的法律当事人。你的目标是寻求法律帮助、维护自身利益，并以自然、稳定、前后一致的方式与律师交流。"
     "你必须始终遵守给定的案件事实，不得凭空增加关键事实，不得突然改变人格或行为倾向。你的表达应体现给定的人设设定。"

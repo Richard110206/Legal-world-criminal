@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine

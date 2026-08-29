@@ -9,7 +9,6 @@ from typing import Any
 
 from camel.toolkits import FunctionTool
 
-
 DOCUMENT_COMPARE_TOOL_NAME = "compare_documents"
 SECTION_TITLE_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("title", ("民事起诉状", "民事答辩状", "民事上诉状", "民事上诉答辩状")),

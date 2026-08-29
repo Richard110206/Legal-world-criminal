@@ -5,7 +5,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 SCORABLE_STAGES = ("LC", "DRAFT", "CI", "APPEAL_DRAFT", "CIA")
 STAGE_METRICS = ("procedural_compliance", "process_coherence")
 ROLE_METRICS = (
@@ -51,7 +50,7 @@ class HumanEvalRatingPayload(BaseModel):
         return stripped
 
     @model_validator(mode="after")
-    def validate_score_shape(self) -> "HumanEvalRatingPayload":
+    def validate_score_shape(self) -> HumanEvalRatingPayload:
         extra_stages = sorted(set(self.stage_scores) - set(SCORABLE_STAGES))
         if extra_stages:
             raise ValueError(f"不可评分阶段不能提交评分: {', '.join(extra_stages)}")

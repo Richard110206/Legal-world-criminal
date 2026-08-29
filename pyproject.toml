@@ -1,0 +1,99 @@
+[project]
+name = "simlaw-criminal"
+version = "0.2.0"
+description = "LegalWorld criminal-law clinical training platform (XH-202620 intensive-learning module)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+# Runtime dependencies mirror requirements.txt (the single source of truth
+# for installs is this file; requirements.txt is kept for Docker/pip parity).
+dependencies = [
+    "camel-ai>=0.1.5.4",
+    "openai>=1.0.0",
+    "docxtpl>=0.16.7",
+    "python-docx>=1.1.0",
+    "jinja2>=3.1.2",
+    "reportlab>=4.2.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.22.0",
+    "websockets>=11.0",
+    "python-multipart>=0.0.6",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0",
+    "tqdm>=4.66.0",
+    "numpy>=1.26.0",
+    "requests>=2.31.0",
+    "pymupdf>=1.24.0",
+    "SQLAlchemy>=2.0.0",
+    "psycopg[binary]>=3.2.0",
+    "PyJWT>=2.8.0",
+    "pwdlib[argon2]>=0.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.3",
+    "httpx>=0.27",
+    "ruff>=0.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+addopts = "-ra --strict-markers"
+timeout = 120
+markers = [
+    "slow: tests that load local ML models or touch large corpora",
+    "integration: tests that require a running server or external services",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = [".venv", "sandbox_data", "legal_corpus", "dataset", "examples"]
+
+[tool.ruff.lint]
+# Rule families:
+#   E/W  pycodestyle        I    isort (import order)
+#   F    pyflakes           N    pep8-naming
+#   UP   pyupgrade          B    bugbear (common bug patterns)
+#   SIM  simplify           C4   comprehensions
+select = ["E", "W", "I", "F", "N", "UP", "B", "SIM", "C4"]
+ignore = [
+    "E501",  # long lines handled case-by-case; legacy files have many
+    "N806",  # domain code uses PascalCase locals for matrix constants
+    "B008",  # FastAPI Depends() in defaults is idiomatic
+    "B010",  # legacy setattr/getattr-with-constant defensive pattern
+    "B009",
+    "B023",  # legacy closures over loop vars (simulation loops); behavioural risk to change
+    "W293",  # trailing whitespace on blank lines; batch-format later, not in review diffs
+    # ── legacy debt (pre-existing findings; remove after cleanup PRs) ──
+    "E402",   # deferred/bottom imports break import cycles in api package
+    "F841",   # unused locals in legacy scenario code
+    "SIM105", # try/except/pass patterns kept for trace clarity
+    "B007",   # unused loop control vars in legacy loops
+    "B905",   # zip() strictness (py311 syntax) — mechanical churn, skip
+    "SIM102", # nested-if collapse in legacy event bus
+    "SIM103", # negated-return style in legacy agents
+    "SIM108", # ternary-collapse style
+    "SIM118", # dict.keys() style in legacy orchestrator
+    "B904",   # raise-from in legacy except blocks
+    "B019",   # lru_cache on methods (human_eval loaders, instance-scoped app)
+    "B024",   # abstract-base without abstract methods (duck-typed agent hierarchy)
+    "UP042",  # str-Enum inheritance kept for JSON serialisation semantics
+]
+
+[tool.ruff.lint.per-file-ignores]
+# pre-existing duplicate definitions (second def wins at runtime) — flagged
+# for a future cleanup PR, not safe to auto-change
+"**/orchestration/scenario_orchestrator.py" = ["F811"]
+"**/simulation/ws_protocol.py" = ["F811"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "ws_server"]
+
+[tool.ruff.format]
+quote-style = "double"

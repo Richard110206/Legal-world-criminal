@@ -8,9 +8,10 @@ import os
 import re
 import sys
 import unicodedata
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -24,19 +25,18 @@ from camel.agents import ChatAgent
 from camel.messages import BaseMessage
 from camel.models import ModelFactory
 from camel.types import ModelPlatformType, ModelType
-
 from data.data_loader import DataLoader
+from utils.drafted_document_sections import resolve_stage_document_text
 from utils.model_config import (
     build_runtime_openai_chat_config,
     resolve_openai_chat_model,
 )
-from utils.drafted_document_sections import resolve_stage_document_text
 from utils.prompt_profile import use_lightweight_eval_judge_prompt
 
 logger = logging.getLogger(__name__)
-QUESTION_DATASET_LOADER_CACHE: Dict[str, DataLoader] = {}
+QUESTION_DATASET_LOADER_CACHE: dict[str, DataLoader] = {}
 
-JUDGE_SCORE_BANDS: Dict[str, str] = {
+JUDGE_SCORE_BANDS: dict[str, str] = {
     "9-10": "核心内容完整准确，论证充分，完整覆盖参考答案要点，但整体高度可信且有说服力。",
     "7-8": "大部分内容合理且较完整，与参考答案相比有少量遗漏或展开不足，但不影响主要判断。",
     "5-6": "部分内容成立，但存在较明显遗漏，或证据、理由运用不够充分。",
@@ -50,7 +50,7 @@ CURRENT_LAW_EVAL_RULE = (
     "不得仅因法律口径不同于GT而降分。"
 )
 
-LLM_AS_JUDGE_PROMPT_LIBRARY: Dict[str, Dict[str, Any]] = {
+LLM_AS_JUDGE_PROMPT_LIBRARY: dict[str, dict[str, Any]] = {
     "LC": {
         "system_prompt": "你是法律咨询阶段的评测法官。给定参考答案，但不要机械做关键词匹配，只输出JSON。",
         "task_prompt": "请根据参考问题和参考答案，评估律师回答的质量。",
@@ -192,12 +192,12 @@ BENCHMARK_STAGE_WEIGHTS = {
 }
 
 
-def _format_score_bands(score_bands: Dict[str, str]) -> str:
+def _format_score_bands(score_bands: dict[str, str]) -> str:
     ordered_bands = ["9-10", "7-8", "5-6", "3-4", "0-2"]
     return "\n".join(f"{band}分：{score_bands[band]}" for band in ordered_bands)
 
 
-def _build_stage_metric_prompt(stage_code: str, metric_names: List[str]) -> str:
+def _build_stage_metric_prompt(stage_code: str, metric_names: list[str]) -> str:
     stage_config = LLM_AS_JUDGE_PROMPT_LIBRARY[stage_code]
     metric_blocks = []
     for index, metric_name in enumerate(metric_names, start=1):
@@ -244,7 +244,7 @@ def build_profiled_judge_eval_prompt(
     stage_code: str,
     prod_prompt: str,
     *,
-    sections: List[tuple[str, str]],
+    sections: list[tuple[str, str]],
     json_schema: str,
 ) -> str:
     rendered_sections = [f"{title}: {value or '无'}" for title, value in sections]
@@ -267,7 +267,7 @@ def build_profiled_judge_eval_prompt(
 
 
 class EvalPipeline:
-    VALID_STAGES: Set[str] = {
+    VALID_STAGES: set[str] = {
         "LC",
         "DRAFT",
         "CI",
@@ -281,14 +281,14 @@ class EvalPipeline:
         self,
         pipeline_result_path: str,
         data_loader: DataLoader,
-        case_index: Optional[int] = None,
-        output_path: Optional[str] = None,
-        start_stage: Optional[str] = None,
-        end_stage: Optional[str] = None,
+        case_index: int | None = None,
+        output_path: str | None = None,
+        start_stage: str | None = None,
+        end_stage: str | None = None,
         judge_model_type: str | ModelType | None = None,
-        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
-        with open(pipeline_result_path, "r", encoding="utf-8") as f:
+        with open(pipeline_result_path, encoding="utf-8") as f:
             self.pipeline_result = json.load(f)
 
         self.data_loader = data_loader
@@ -325,7 +325,7 @@ class EvalPipeline:
 
         self.judge_model_type = resolve_openai_chat_model(explicit_model=judge_model_type)
         self.progress_callback = progress_callback
-        self.eval_results: Dict[str, Any] = {}
+        self.eval_results: dict[str, Any] = {}
         self._reached_start = self.start_stage is None
         self._reached_end = False
         self.stages_completed = self.pipeline_result.get("stages_completed", [])
@@ -373,7 +373,7 @@ class EvalPipeline:
                 return "AD" if sd_result.get("is_appellant", True) else "AR"
         return stage
 
-    def _emit_progress(self, event_type: str, stage: Optional[str] = None) -> None:
+    def _emit_progress(self, event_type: str, stage: str | None = None) -> None:
         if self.progress_callback is None:
             return
         stage_code = self._resolve_progress_stage(stage) if stage else None
@@ -434,7 +434,7 @@ class EvalPipeline:
 
         return None
 
-    def _parse_judge_response(self, response: str) -> Dict[str, Any]:
+    def _parse_judge_response(self, response: str) -> dict[str, Any]:
         payload = self._parse_json_payload(response)
         if isinstance(payload, dict):
             return payload
@@ -446,15 +446,15 @@ class EvalPipeline:
     def _salvage_metric_payload_from_response(
         self,
         response: str,
-        metric_names: List[str],
-    ) -> Dict[str, Any] | None:
+        metric_names: list[str],
+    ) -> dict[str, Any] | None:
         text = str(response or "").strip()
         if not text or not metric_names:
             return None
 
         fenced_blocks = re.findall(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
         candidate_text = fenced_blocks[0] if fenced_blocks else text
-        salvaged: Dict[str, Any] = {}
+        salvaged: dict[str, Any] = {}
 
         for index, metric_name in enumerate(metric_names):
             current_match = re.search(rf'"{re.escape(metric_name)}"\s*:\s*\{{', candidate_text)
@@ -502,9 +502,9 @@ class EvalPipeline:
 
     def _resolve_metric_payload(
         self,
-        judge_result: Dict[str, Any],
-        metric_names: List[str],
-    ) -> Dict[str, Any] | None:
+        judge_result: dict[str, Any],
+        metric_names: list[str],
+    ) -> dict[str, Any] | None:
         if not isinstance(judge_result, dict):
             return None
 
@@ -516,8 +516,8 @@ class EvalPipeline:
         if not available_items:
             return None
 
-        resolved: Dict[str, Any] = {}
-        used_keys: Set[str] = set()
+        resolved: dict[str, Any] = {}
+        used_keys: set[str] = set()
 
         for metric_name in metric_names:
             exact_value = judge_result.get(metric_name)
@@ -563,14 +563,14 @@ class EvalPipeline:
             return None
         return resolved
 
-    def _has_expected_metric_payload(self, judge_result: Dict[str, Any], metric_names: List[str]) -> bool:
+    def _has_expected_metric_payload(self, judge_result: dict[str, Any], metric_names: list[str]) -> bool:
         return self._resolve_metric_payload(judge_result, metric_names) is not None
 
     def _describe_metric_payload_issue(
         self,
         response: str,
-        judge_result: Dict[str, Any],
-        metric_names: List[str],
+        judge_result: dict[str, Any],
+        metric_names: list[str],
     ) -> str:
         if not str(response or "").strip():
             return "Judge returned empty content"
@@ -604,19 +604,19 @@ class EvalPipeline:
     def _strip_draft_end_marker(self, text: str) -> str:
         return self._normalize_document(text).replace("【起草结束】", "").strip()
 
-    def _average(self, values: List[Optional[float]]) -> float:
+    def _average(self, values: list[float | None]) -> float:
         filtered = [value for value in values if value is not None]
         return sum(filtered) / len(filtered) if filtered else 0.0
 
-    def _empty_component_eval(self, reason: str = "GT missing") -> Dict[str, Any]:
+    def _empty_component_eval(self, reason: str = "GT missing") -> dict[str, Any]:
         return {"score": None, "raw_score": None, "reason": reason}
 
-    def _format_item_names(self, incorrect_names: List[str], correct_name: str, text: str) -> str:
+    def _format_item_names(self, incorrect_names: list[str], correct_name: str, text: str) -> str:
         for name in incorrect_names:
             text = text.replace(name, correct_name)
         return text
 
-    def _birth_date_variants(self, value: str) -> List[str]:
+    def _birth_date_variants(self, value: str) -> list[str]:
         text = str(value or "").strip()
         if not text:
             return []
@@ -633,7 +633,7 @@ class EvalPipeline:
                 pass
         return list(dict.fromkeys(variants))
 
-    def _eval_entity_em(self, profile: Dict[str, Any], text: str) -> Dict[str, Any]:
+    def _eval_entity_em(self, profile: dict[str, Any], text: str) -> dict[str, Any]:
         party_type = profile.get("type", "personal")
         if party_type == "corporate" or profile.get("representative"):
             fields_to_check = {
@@ -651,7 +651,7 @@ class EvalPipeline:
 
         matched = 0
         total = 0
-        details: Dict[str, Any] = {}
+        details: dict[str, Any] = {}
         for field, value in fields_to_check.items():
             if not value:
                 continue
@@ -671,8 +671,8 @@ class EvalPipeline:
             "details": details,
         }
 
-    def _parse_comp_scores(self, result: dict, keys: List[str]) -> Dict[str, Any]:
-        parsed: Dict[str, Any] = {}
+    def _parse_comp_scores(self, result: dict, keys: list[str]) -> dict[str, Any]:
+        parsed: dict[str, Any] = {}
         default_reason = ""
         if isinstance(result, dict):
             default_reason = str(result.get("__judge_error__", "") or "")
@@ -695,16 +695,16 @@ class EvalPipeline:
 
     def _collect_dialog_document(
         self,
-        dialog_history: List[Dict[str, Any]],
-        preferred_roles: List[str],
-        fallback_roles: Optional[List[str]] = None,
+        dialog_history: list[dict[str, Any]],
+        preferred_roles: list[str],
+        fallback_roles: list[str] | None = None,
     ) -> str:
         messages = [entry.get("content", "") for entry in dialog_history if entry.get("role") in preferred_roles]
         if not messages and fallback_roles:
             messages = [entry.get("content", "") for entry in dialog_history if entry.get("role") in fallback_roles]
         return "\n\n".join(message for message in messages if message)
 
-    def _extract_document(self, stage_key: str) -> Optional[str]:
+    def _extract_document(self, stage_key: str) -> str | None:
         stage_results = self.pipeline_result.get("stage_results", {}).get(stage_key, {})
         document = resolve_stage_document_text(
             stage_results,
@@ -749,7 +749,7 @@ class EvalPipeline:
     def _normalize_case_key(value: Any) -> str:
         return re.sub(r"\s+", "", str(value or "").strip())
 
-    def _extract_party_name_from_case(self, case: Dict[str, Any], party_role: str) -> str:
+    def _extract_party_name_from_case(self, case: dict[str, Any], party_role: str) -> str:
         party_info = case.get("extracted_info", {}).get("party_info", {})
         party_raw = party_info.get(party_role, {})
 
@@ -768,9 +768,9 @@ class EvalPipeline:
 
     def _extract_lc_reference_questions_from_case(
         self,
-        case: Dict[str, Any],
+        case: dict[str, Any],
         party_role: str,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         party_info = case.get("extracted_info", {}).get("party_info", {})
         party_raw = party_info.get(party_role, {})
 
@@ -786,7 +786,7 @@ class EvalPipeline:
         else:
             party_data = party_raw if isinstance(party_raw, dict) else {}
 
-        reference_questions: List[Dict[str, str]] = []
+        reference_questions: list[dict[str, str]] = []
         for raw_question in party_data.get("questions", []):
             if isinstance(raw_question, dict):
                 question_text = str(raw_question.get("question", "") or "").strip()
@@ -809,9 +809,9 @@ class EvalPipeline:
         return reference_questions
 
     @staticmethod
-    def _lc_question_dataset_candidates() -> List[Path]:
+    def _lc_question_dataset_candidates() -> list[Path]:
         project_root = Path(__file__).resolve().parents[3]
-        ordered: List[Path] = []
+        ordered: list[Path] = []
 
         seed_dataset = project_root / "backend" / "sandbox_seed_data" / "case_data_extracted.json"
         if seed_dataset.exists():
@@ -822,8 +822,8 @@ class EvalPipeline:
             for candidate in sorted(data_dir.glob("*question*.json")):
                 ordered.append(candidate.resolve())
 
-        deduped: List[Path] = []
-        seen: Set[str] = set()
+        deduped: list[Path] = []
+        seen: set[str] = set()
         for candidate in ordered:
             resolved = str(candidate)
             if resolved in seen:
@@ -841,13 +841,13 @@ class EvalPipeline:
             QUESTION_DATASET_LOADER_CACHE[resolved_path] = loader
         return loader
 
-    def _load_fallback_lc_reference_questions(self) -> List[Dict[str, str]]:
+    def _load_fallback_lc_reference_questions(self) -> list[dict[str, str]]:
         party_role = self._resolve_party_role()
         target_name = self._extract_party_name_from_case(self.source_data, party_role)
         target_background = self._normalize_case_key(
             self.source_data.get("extracted_info", {}).get("case_background", "")
         )
-        loose_matches: List[tuple[List[Dict[str, str]], Path]] = []
+        loose_matches: list[tuple[list[dict[str, str]], Path]] = []
 
         for dataset_path in self._lc_question_dataset_candidates():
             loader = self._get_cached_question_loader(dataset_path)
@@ -884,7 +884,7 @@ class EvalPipeline:
 
         return []
 
-    def _extract_lc_reference_questions(self) -> List[Dict[str, str]]:
+    def _extract_lc_reference_questions(self) -> list[dict[str, str]]:
         reference_questions = self._extract_lc_reference_questions_from_case(
             self.source_data,
             self._resolve_party_role(),
@@ -893,8 +893,8 @@ class EvalPipeline:
             return reference_questions
         return self._load_fallback_lc_reference_questions()
 
-    def _format_lc_dialog_history(self, dialog_history: List[Dict[str, Any]]) -> str:
-        rendered_entries: List[str] = []
+    def _format_lc_dialog_history(self, dialog_history: list[dict[str, Any]]) -> str:
+        rendered_entries: list[str] = []
         for entry in dialog_history:
             content = str(entry.get("content", "") or "").strip()
             if not content:
@@ -904,7 +904,7 @@ class EvalPipeline:
             rendered_entries.append(f"[turn={turn}][{role}] {content}")
         return "\n".join(rendered_entries)
 
-    def _normalize_turn_numbers(self, raw_turns: Any) -> List[int]:
+    def _normalize_turn_numbers(self, raw_turns: Any) -> list[int]:
         if isinstance(raw_turns, list):
             candidates = raw_turns
         elif raw_turns in (None, ""):
@@ -912,7 +912,7 @@ class EvalPipeline:
         else:
             candidates = [raw_turns]
 
-        normalized: List[int] = []
+        normalized: list[int] = []
         for item in candidates:
             try:
                 normalized.append(int(item))
@@ -925,7 +925,7 @@ class EvalPipeline:
         return re.sub(r"\s+", "", str(value or "").strip())
 
     @staticmethod
-    def _has_nonempty_lc_answers(qa_pairs: List[Dict[str, Any]]) -> bool:
+    def _has_nonempty_lc_answers(qa_pairs: list[dict[str, Any]]) -> bool:
         return any(
             str(item.get("lawyer_answer", "") or "").strip()
             for item in qa_pairs
@@ -937,12 +937,12 @@ class EvalPipeline:
         return re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff]+", "", str(value or "").strip().lower())
 
     @classmethod
-    def _extract_lc_matching_keywords(cls, question: str) -> List[str]:
+    def _extract_lc_matching_keywords(cls, question: str) -> list[str]:
         normalized = cls._normalize_lc_matching_text(question)
         if not normalized:
             return []
 
-        keywords: List[str] = []
+        keywords: list[str] = []
         for match in re.findall(r"\d+(?:\.\d+)?", normalized):
             keywords.append(match)
 
@@ -972,9 +972,9 @@ class EvalPipeline:
 
         return list(dict.fromkeys(keywords))
 
-    def _build_lc_exchange_pairs(self, dialog_history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        exchanges: List[Dict[str, Any]] = []
-        pending_client: Optional[Dict[str, Any]] = None
+    def _build_lc_exchange_pairs(self, dialog_history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        exchanges: list[dict[str, Any]] = []
+        pending_client: dict[str, Any] | None = None
 
         for entry in dialog_history:
             role = str(entry.get("role", "") or "").strip()
@@ -1006,7 +1006,7 @@ class EvalPipeline:
     def _score_lc_exchange_for_question(
         self,
         question: str,
-        exchange: Dict[str, Any],
+        exchange: dict[str, Any],
     ) -> float:
         client_text = self._normalize_lc_matching_text(exchange.get("client_asked", ""))
         lawyer_text = self._normalize_lc_matching_text(exchange.get("lawyer_answer", ""))
@@ -1045,12 +1045,12 @@ class EvalPipeline:
 
     def _fallback_extract_lc_qa_pairs(
         self,
-        dialog_history: List[Dict[str, Any]],
-        reference_questions: List[Dict[str, str]],
-    ) -> List[Dict[str, Any]]:
+        dialog_history: list[dict[str, Any]],
+        reference_questions: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
         exchanges = self._build_lc_exchange_pairs(dialog_history)
-        assigned: Dict[int, List[Dict[str, Any]]] = {idx: [] for idx in range(len(reference_questions))}
-        leftovers: List[Dict[str, Any]] = []
+        assigned: dict[int, list[dict[str, Any]]] = {idx: [] for idx in range(len(reference_questions))}
+        leftovers: list[dict[str, Any]] = []
 
         for exchange in exchanges:
             scored = [
@@ -1071,7 +1071,7 @@ class EvalPipeline:
         for question_index, exchange in zip(missing_indexes, leftovers):
             assigned[question_index].append(exchange)
 
-        fallback_pairs: List[Dict[str, Any]] = []
+        fallback_pairs: list[dict[str, Any]] = []
         for reference_question in reference_questions:
             question_index = reference_question["question_index"]
             exchanges_for_question = assigned.get(question_index, [])
@@ -1098,7 +1098,7 @@ class EvalPipeline:
                 for item in exchanges_for_question
                 if str(item.get("lawyer_answer", "") or "").strip()
             )
-            source_turns: List[int] = []
+            source_turns: list[int] = []
             for item in exchanges_for_question:
                 source_turns.extend(item.get("source_turns", []))
 
@@ -1117,11 +1117,11 @@ class EvalPipeline:
 
     def _merge_lc_qa_pairs(
         self,
-        primary_pairs: List[Dict[str, Any]],
-        fallback_pairs: List[Dict[str, Any]],
-        reference_questions: List[Dict[str, str]],
-    ) -> List[Dict[str, Any]]:
-        merged_pairs: List[Dict[str, Any]] = []
+        primary_pairs: list[dict[str, Any]],
+        fallback_pairs: list[dict[str, Any]],
+        reference_questions: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
+        merged_pairs: list[dict[str, Any]] = []
         fallback_by_index = {
             item.get("question_index"): item
             for item in fallback_pairs
@@ -1173,9 +1173,9 @@ class EvalPipeline:
     def _normalize_lc_qa_pairs(
         self,
         payload: Any,
-        reference_questions: List[Dict[str, str]],
-    ) -> List[Dict[str, Any]]:
-        raw_pairs: List[Any] = []
+        reference_questions: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
+        raw_pairs: list[Any] = []
         if isinstance(payload, dict):
             candidate_pairs = payload.get("qa_pairs")
             if isinstance(candidate_pairs, list):
@@ -1188,13 +1188,13 @@ class EvalPipeline:
             for item in reference_questions
             if item.get("question")
         }
-        normalized_pairs: Dict[int, Dict[str, Any]] = {}
+        normalized_pairs: dict[int, dict[str, Any]] = {}
 
         for raw_pair in raw_pairs:
             if not isinstance(raw_pair, dict):
                 continue
 
-            question_index: Optional[int] = None
+            question_index: int | None = None
             try:
                 question_index = int(raw_pair.get("question_index"))
             except (TypeError, ValueError):
@@ -1268,9 +1268,9 @@ class EvalPipeline:
 
     def _extract_lc_qa_pairs_with_llm(
         self,
-        dialog_history: List[Dict[str, Any]],
-        reference_questions: List[Dict[str, str]],
-    ) -> List[Dict[str, Any]]:
+        dialog_history: list[dict[str, Any]],
+        reference_questions: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
         transcript = self._format_lc_dialog_history(dialog_history)
         if not transcript:
             return []
@@ -1334,10 +1334,10 @@ class EvalPipeline:
     def _normalize_lc_qa_evals(
         self,
         payload: Any,
-        reference_questions: List[Dict[str, str]],
-        qa_pairs: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
-        raw_results: List[Any] = []
+        reference_questions: list[dict[str, str]],
+        qa_pairs: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        raw_results: list[Any] = []
         if isinstance(payload, dict):
             for key in ("qa_evals", "results", "evaluations"):
                 candidate_results = payload.get(key)
@@ -1347,7 +1347,7 @@ class EvalPipeline:
         elif isinstance(payload, list):
             raw_results = payload
 
-        normalized_results: Dict[int, Dict[str, Any]] = {}
+        normalized_results: dict[int, dict[str, Any]] = {}
         for raw_result in raw_results:
             if not isinstance(raw_result, dict):
                 continue
@@ -1371,7 +1371,7 @@ class EvalPipeline:
             }
 
         qa_pair_by_index = {item["question_index"]: item for item in qa_pairs}
-        qa_evals: List[Dict[str, Any]] = []
+        qa_evals: list[dict[str, Any]] = []
         for reference_question in reference_questions:
             question_index = reference_question["question_index"]
             qa_pair = qa_pair_by_index.get(question_index, {})
@@ -1400,15 +1400,15 @@ class EvalPipeline:
     def _salvage_lc_qa_evals_payload(
         self,
         response: str,
-        reference_questions: List[Dict[str, str]],
-    ) -> Dict[str, Any] | None:
+        reference_questions: list[dict[str, str]],
+    ) -> dict[str, Any] | None:
         text = str(response or "").strip()
         if not text:
             return None
 
         fenced_blocks = re.findall(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
         candidate_text = fenced_blocks[0] if fenced_blocks else text
-        qa_evals: List[Dict[str, Any]] = []
+        qa_evals: list[dict[str, Any]] = []
 
         for index, reference_question in enumerate(reference_questions):
             question_index = reference_question["question_index"]
@@ -1450,7 +1450,7 @@ class EvalPipeline:
 
         return {"qa_evals": qa_evals} if qa_evals else None
 
-    def _salvage_single_lc_qa_eval_payload(self, response: str) -> Dict[str, Any] | None:
+    def _salvage_single_lc_qa_eval_payload(self, response: str) -> dict[str, Any] | None:
         text = str(response or "").strip()
         if not text:
             return None
@@ -1471,7 +1471,7 @@ class EvalPipeline:
             "reason": reason_text,
         }
 
-    def _normalize_single_lc_qa_eval(self, payload: Any) -> Dict[str, Any] | None:
+    def _normalize_single_lc_qa_eval(self, payload: Any) -> dict[str, Any] | None:
         candidate = payload
         if isinstance(payload, dict):
             for key in ("qa_eval", "result", "evaluation"):
@@ -1500,10 +1500,10 @@ class EvalPipeline:
 
     def _evaluate_missing_lc_questions_individually(
         self,
-        reference_questions: List[Dict[str, str]],
-        qa_pairs: List[Dict[str, Any]],
-        qa_evals: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        reference_questions: list[dict[str, str]],
+        qa_pairs: list[dict[str, Any]],
+        qa_evals: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         missing_question_indices = [
             item["question_index"]
             for item in qa_evals
@@ -1523,7 +1523,7 @@ class EvalPipeline:
             )
         )
         try:
-            recovered_results: Dict[int, Dict[str, Any]] = {}
+            recovered_results: dict[int, dict[str, Any]] = {}
             for question_index in missing_question_indices:
                 reference_question = reference_by_index.get(question_index)
                 qa_pair = qa_pair_by_index.get(question_index)
@@ -1575,7 +1575,7 @@ class EvalPipeline:
         finally:
             del judge_agent
 
-        recovered_evals: List[Dict[str, Any]] = []
+        recovered_evals: list[dict[str, Any]] = []
         for item in qa_evals:
             recovered = recovered_results.get(item["question_index"])
             if recovered is None:
@@ -1591,9 +1591,9 @@ class EvalPipeline:
 
     def _evaluate_lc_qa_pairs_with_llm(
         self,
-        reference_questions: List[Dict[str, str]],
-        qa_pairs: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        reference_questions: list[dict[str, str]],
+        qa_pairs: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         structured_pairs = []
         for reference_question, qa_pair in zip(reference_questions, qa_pairs):
             structured_pairs.append(
@@ -1669,9 +1669,9 @@ class EvalPipeline:
     def _normalize_lc_full_dialog_evals(
         self,
         payload: Any,
-        reference_questions: List[Dict[str, str]],
-    ) -> List[Dict[str, Any]]:
-        raw_results: List[Any] = []
+        reference_questions: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
+        raw_results: list[Any] = []
         if isinstance(payload, dict):
             for key in ("qa_evals", "results", "evaluations"):
                 candidate_results = payload.get(key)
@@ -1681,7 +1681,7 @@ class EvalPipeline:
         elif isinstance(payload, list):
             raw_results = payload
 
-        normalized_results: Dict[int, Dict[str, Any]] = {}
+        normalized_results: dict[int, dict[str, Any]] = {}
         for raw_result in raw_results:
             if not isinstance(raw_result, dict):
                 continue
@@ -1706,7 +1706,7 @@ class EvalPipeline:
                 "source_turns": self._normalize_turn_numbers(raw_result.get("source_turns", [])),
             }
 
-        qa_evals: List[Dict[str, Any]] = []
+        qa_evals: list[dict[str, Any]] = []
         for reference_question in reference_questions:
             question_index = reference_question["question_index"]
             result = normalized_results.get(question_index, {})
@@ -1732,10 +1732,10 @@ class EvalPipeline:
 
     def _evaluate_missing_lc_questions_from_full_dialog(
         self,
-        dialog_history: List[Dict[str, Any]],
-        reference_questions: List[Dict[str, str]],
-        qa_evals: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        dialog_history: list[dict[str, Any]],
+        reference_questions: list[dict[str, str]],
+        qa_evals: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         missing_question_indices = [
             item["question_index"]
             for item in qa_evals
@@ -1759,7 +1759,7 @@ class EvalPipeline:
             )
         )
         try:
-            recovered_results: Dict[int, Dict[str, Any]] = {}
+            recovered_results: dict[int, dict[str, Any]] = {}
             for question_index in missing_question_indices:
                 reference_question = reference_by_index.get(question_index)
                 if reference_question is None:
@@ -1816,7 +1816,7 @@ class EvalPipeline:
         finally:
             del judge_agent
 
-        recovered_evals: List[Dict[str, Any]] = []
+        recovered_evals: list[dict[str, Any]] = []
         for item in qa_evals:
             recovered = recovered_results.get(item["question_index"])
             if recovered is None:
@@ -1834,9 +1834,9 @@ class EvalPipeline:
 
     def _evaluate_lc_full_dialog_with_llm(
         self,
-        dialog_history: List[Dict[str, Any]],
-        reference_questions: List[Dict[str, str]],
-    ) -> List[Dict[str, Any]]:
+        dialog_history: list[dict[str, Any]],
+        reference_questions: list[dict[str, str]],
+    ) -> list[dict[str, Any]]:
         transcript = self._format_lc_dialog_history(dialog_history)
         reference_payload = [
             {
@@ -1913,9 +1913,9 @@ class EvalPipeline:
     def _evaluate_components_with_judge(
         self,
         stage_code: str,
-        sections: List[tuple[str, str]],
-        metric_names: List[str],
-    ) -> Dict[str, Any]:
+        sections: list[tuple[str, str]],
+        metric_names: list[str],
+    ) -> dict[str, Any]:
         json_schema = json.dumps(
             {name: {"score": 0, "reason": ""} for name in metric_names},
             ensure_ascii=False,
@@ -1965,7 +1965,7 @@ class EvalPipeline:
                 last_issue,
             )
 
-        individual_metric_payload: Dict[str, Any] = {}
+        individual_metric_payload: dict[str, Any] = {}
         for metric_name in metric_names:
             single_schema = json.dumps(
                 {metric_name: {"score": 0, "reason": ""}},
@@ -1979,7 +1979,7 @@ class EvalPipeline:
                 json_schema=single_schema,
             )
 
-            recovered_metric: Dict[str, Any] | None = None
+            recovered_metric: dict[str, Any] | None = None
             single_issue = ""
             for attempt in range(2):
                 judge_agent = self._create_judge_agent(system_prompt)
@@ -2016,7 +2016,7 @@ class EvalPipeline:
 
         return self._parse_comp_scores(individual_metric_payload, metric_names)
 
-    def _eval_draft_cd(self, document: str) -> Dict[str, Any]:
+    def _eval_draft_cd(self, document: str) -> dict[str, Any]:
         plaintiff_profile = self.data_loader.extract_plaintiff_profile(self.source_data)
         defendant_profile = self.data_loader.extract_defendant_profile(self.source_data)
         plaintiff_em = self._eval_entity_em(plaintiff_profile, document)
@@ -2028,8 +2028,8 @@ class EvalPipeline:
         gt_facts = self.data_loader.extract_facts_and_reasons(self.source_data)
         gt_evidence = self.data_loader.extract_plaintiff_evidence(self.source_data)
 
-        metrics: List[str] = []
-        sections: List[tuple[str, str]] = []
+        metrics: list[str] = []
+        sections: list[tuple[str, str]] = []
         if gt_claims:
             metrics.append("诉讼请求")
             sections.append(("参考诉讼请求", gt_claims))
@@ -2071,7 +2071,7 @@ class EvalPipeline:
             },
         }
 
-    def _eval_draft_dd(self, document: str) -> Dict[str, Any]:
+    def _eval_draft_dd(self, document: str) -> dict[str, Any]:
         defendant_profile = self.data_loader.extract_defendant_profile(self.source_data)
         defendant_em = self._eval_entity_em(defendant_profile, document)
 
@@ -2079,8 +2079,8 @@ class EvalPipeline:
         gt_plea = self.data_loader.extract_defendant_defense(self.source_data)
         gt_evidence = self.data_loader.extract_defendant_evidence(self.source_data)
 
-        metrics: List[str] = []
-        sections: List[tuple[str, str]] = []
+        metrics: list[str] = []
+        sections: list[tuple[str, str]] = []
         if gt_plea:
             metrics.append("答辩意见")
             sections.append(("参考答辩意见", gt_plea))
@@ -2113,7 +2113,7 @@ class EvalPipeline:
             },
         }
 
-    def _eval_draft_ad(self, document: str) -> Dict[str, Any]:
+    def _eval_draft_ad(self, document: str) -> dict[str, Any]:
         extracted_info = self.source_data.get("extracted_info", {})
         appellant_role = extracted_info.get("appellant", "")
         if appellant_role == "原告":
@@ -2134,8 +2134,8 @@ class EvalPipeline:
         gt_reasons = appellant_appeal.get("reasons", "")
         gt_evidence = self.data_loader.extract_second_instance_evidence(self.source_data, side="appellant")
 
-        metrics: List[str] = []
-        sections: List[tuple[str, str]] = []
+        metrics: list[str] = []
+        sections: list[tuple[str, str]] = []
         if gt_claims:
             metrics.append("上诉请求")
             sections.append(("参考上诉请求", gt_claims))
@@ -2177,7 +2177,7 @@ class EvalPipeline:
             },
         }
 
-    def _eval_draft_ar(self, document: str) -> Dict[str, Any]:
+    def _eval_draft_ar(self, document: str) -> dict[str, Any]:
         extracted_info = self.source_data.get("extracted_info", {})
         appellant_role = extracted_info.get("appellant", "")
         if appellant_role == "原告":
@@ -2190,8 +2190,8 @@ class EvalPipeline:
         gt_plea = self.data_loader.extract_second_instance_appellee_defense(self.source_data)
         gt_evidence = self.data_loader.extract_second_instance_evidence(self.source_data, side="appellee")
 
-        metrics: List[str] = []
-        sections: List[tuple[str, str]] = []
+        metrics: list[str] = []
+        sections: list[tuple[str, str]] = []
         if gt_plea:
             metrics.append("答辩意见")
             sections.append(("参考答辩意见", gt_plea))
@@ -2224,13 +2224,13 @@ class EvalPipeline:
             },
         }
 
-    def _eval_ci(self) -> Dict[str, Any]:
+    def _eval_ci(self) -> dict[str, Any]:
         return self._eval_ci_aligned()
 
-    def _eval_cia(self) -> Dict[str, Any]:
+    def _eval_cia(self) -> dict[str, Any]:
         return self._eval_cia_aligned()
 
-    def _eval_ci_aligned(self) -> Dict[str, Any]:
+    def _eval_ci_aligned(self) -> dict[str, Any]:
         party_role = self.pipeline_result.get("stage_output", {}).get("party_role", "") or self.pipeline_result.get("party_role", "plaintiff")
         is_plaintiff = party_role == "plaintiff"
         dialog_history = self.pipeline_result.get("stage_results", {}).get("CI", {}).get("dialog_history", [])
@@ -2274,7 +2274,7 @@ class EvalPipeline:
         stage_score = self._average([metric_result[name]["score"] for name in metrics])
         return {"stage_score": stage_score, "metrics": metric_result, "role": role_name}
 
-    def _eval_cia_aligned(self) -> Dict[str, Any]:
+    def _eval_cia_aligned(self) -> dict[str, Any]:
         is_appellant = self.pipeline_result.get("stage_results", {}).get("SD", {}).get("is_appellant", True)
         dialog_history = self.pipeline_result.get("stage_results", {}).get("CIA", {}).get("dialog_history", [])
         document = self._collect_dialog_document(
@@ -2323,9 +2323,9 @@ class EvalPipeline:
 
     def _compute_weighted_overall_summary(
         self,
-        scored_stages: Dict[str, Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        weighted_stage_scores: Dict[str, Any] = {}
+        scored_stages: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        weighted_stage_scores: dict[str, Any] = {}
         overall_score = 0.0
         overall_possible_score = 0
 
@@ -2355,7 +2355,7 @@ class EvalPipeline:
             "weighted_stage_scores": weighted_stage_scores,
         }
 
-    def _eval_lc(self) -> Dict[str, Any]:
+    def _eval_lc(self) -> dict[str, Any]:
         lc_result = self.pipeline_result.get("stage_results", {}).get("LC", {})
         dialog_history = lc_result.get("dialog_history", [])
         if not dialog_history:
@@ -2378,7 +2378,7 @@ class EvalPipeline:
             "qa_evals": qa_evals,
         }
 
-    def run(self) -> Dict[str, Any]:
+    def run(self) -> dict[str, Any]:
         start_time = datetime.now()
         case_id = (
             self.pipeline_result.get("case_id")

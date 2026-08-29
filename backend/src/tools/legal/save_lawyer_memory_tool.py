@@ -23,7 +23,6 @@ from ...utils.live_card_memory import (
     update_agent_memory_cache,
 )
 
-
 SAVE_LAWYER_MEMORY_DESCRIPTION = build_save_tool_description(LAWYER_MEMORY_OWNER)
 SAVE_LAWYER_MEMORY_OPERATIONS_DESCRIPTION = build_save_operations_description(LAWYER_MEMORY_OWNER)
 

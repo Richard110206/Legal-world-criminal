@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +32,11 @@ class InvestigatorAgent:
         agent_id: str,
         name: str,
         police_org: str = DEFAULT_POLICE_ORG,
-        scenario_type: Optional[str] = None,
-        scenario_data: Optional[Dict[str, Any]] = None,
+        scenario_type: str | None = None,
+        scenario_data: dict[str, Any] | None = None,
         system_prompt: str = "",
-        tools: Optional[List[Any]] = None,
-        model_type: Optional[str] = None,
+        tools: list[Any] | None = None,
+        model_type: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.agent_id = agent_id
@@ -47,10 +47,10 @@ class InvestigatorAgent:
         self.tools = list(tools or [])
         self.model_type = model_type
 
-        self.config_path: Optional[str] = kwargs.get("config_path")
+        self.config_path: str | None = kwargs.get("config_path")
         self.storage: Any = kwargs.get("storage")
         self.chat_agent = None
-        self._last_tool_call_records: List[Any] = []
+        self._last_tool_call_records: list[Any] = []
         self._is_active = False
 
         if scenario_type and not system_prompt:
@@ -81,7 +81,7 @@ class InvestigatorAgent:
         )
         return response
 
-    def get_prompt_info(self) -> Dict[str, Any]:
+    def get_prompt_info(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "agent_name": self.name,
@@ -100,7 +100,7 @@ class InvestigatorAgent:
             "2. 涉及程序性问题（如取保候审）应依法回复。\n"
         )
 
-    def add_runtime_tools(self, tools: List[Any]) -> None:
+    def add_runtime_tools(self, tools: list[Any]) -> None:
         existing_names = {
             t.get_function_name()
             for t in self.tools
@@ -113,11 +113,11 @@ class InvestigatorAgent:
                 self.tools.append(tool)
 
     @property
-    def current_handling_case(self) -> Optional[str]:
+    def current_handling_case(self) -> str | None:
         return self.scenario_data.get("case_id") if self.scenario_data else None
 
     @property
-    def case_queue(self) -> List[str]:
+    def case_queue(self) -> list[str]:
         return []
 
 

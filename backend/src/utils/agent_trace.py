@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import json
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
 
 TRACE_SCHEMA_VERSION = "simlaw-agent-trace-v1"
 CASE_TRACE_SCHEMA_VERSION = "simlaw-case-trace-v1"
 
 
 def _utc_timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _normalize_text(value: Any) -> str:
@@ -106,9 +105,7 @@ def serialize_tool_call_record(record: Any) -> dict[str, Any]:
     normalized_result = _normalize_payload(result)
     normalized_error = str(error).strip() if error not in (None, "") else ""
     if not status:
-        if normalized_error:
-            status = "failed"
-        elif isinstance(normalized_result, str) and normalized_result.startswith("Tool execution failed:"):
+        if normalized_error or isinstance(normalized_result, str) and normalized_result.startswith("Tool execution failed:"):
             status = "failed"
         else:
             status = "completed"
@@ -129,7 +126,7 @@ def serialize_tool_call_record(record: Any) -> dict[str, Any]:
 def bind_agent_trace_context(
     agent: Any,
     *,
-    recorder: "CaseAgentTraceRecorder",
+    recorder: CaseAgentTraceRecorder,
     output_dir: str | Path,
     stage_code: str,
     stage_key: str | None = None,

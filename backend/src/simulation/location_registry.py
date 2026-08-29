@@ -25,7 +25,7 @@ def _normalize_building_prefix(building: str) -> str:
     return str(building or "").strip()
 
 
-def _make_unique_location_id(store: dict[str, "Location"], loc_id: str) -> str:
+def _make_unique_location_id(store: dict[str, Location], loc_id: str) -> str:
     """Rename duplicate location ids while keeping numeric suffixes readable."""
     if loc_id not in store:
         return loc_id
@@ -51,10 +51,10 @@ def _make_unique_location_id(store: dict[str, "Location"], loc_id: str) -> str:
 
 def _build_waiting_spot_locations(
     building_prefix: str,
-    sofas: list[tuple[str, "Location"]],
-    front_desk: "Location | None",
-    zone: "BuildingZone | None",
-) -> list[tuple[str, "Location"]]:
+    sofas: list[tuple[str, Location]],
+    front_desk: Location | None,
+    zone: BuildingZone | None,
+) -> list[tuple[str, Location]]:
     """Generate indoor standing queue spots for a law firm."""
     if sofas:
         sorted_sofas = sorted(sofas, key=lambda item: (item[1].y, item[1].x, item[0]))
@@ -281,7 +281,7 @@ def _parse_group_layers(
 
 def load_registry_from_map(map_path: str | Path) -> LocationRegistry:
     map_path = Path(map_path)
-    with open(map_path, "r", encoding="utf-8") as file:
+    with open(map_path, encoding="utf-8") as file:
         data = json.load(file)
 
     registry = LocationRegistry()

@@ -44,7 +44,7 @@ def _resolve_lawyer_slot(config: dict[str, Any], lawyer_dir: Path) -> str:
     return lawyer_dir.name
 
 
-def _memory_path(storage: "FileStorageManager", case_key: str, slot: str) -> Path:
+def _memory_path(storage: FileStorageManager, case_key: str, slot: str) -> Path:
     return Path(storage.base_dir) / "output" / case_key / slot / "memory.yaml"
 
 
@@ -63,7 +63,7 @@ def _load_existing_yaml(path: Path) -> dict[str, Any] | None:
     return None
 
 
-def initialize_client_memory(storage: "FileStorageManager", client_path: str) -> None:
+def initialize_client_memory(storage: FileStorageManager, client_path: str) -> None:
     """Create client memory.yaml when missing, optionally migrating legacy config memory."""
     client_dir = Path(client_path)
     config = storage.load_agent_config(client_dir)
@@ -106,7 +106,7 @@ def initialize_client_memory(storage: "FileStorageManager", client_path: str) ->
     logger.info("[MemoryInit] Client %s: memory.yaml initialized at %s", client_path, memory_path)
 
 
-def initialize_lawyer_memory(storage: "FileStorageManager", lawyer_path: str) -> None:
+def initialize_lawyer_memory(storage: FileStorageManager, lawyer_path: str) -> None:
     """Create lawyer memory.yaml when missing, optionally migrating legacy config memory."""
     lawyer_dir = Path(lawyer_path)
     config = storage.load_agent_config(lawyer_dir)

@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from typing import Any
 
-
 DEFAULT_RUNTIME_OPENAI_MODEL = "qwen3.5-flash"
 _ENABLE_THINKING_MODEL_PREFIXES = ("qwen",)
 

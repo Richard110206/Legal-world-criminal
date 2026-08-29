@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
-from .document_drafting_support import extract_json_payload
 from .criminal_first_instance_judgment_drafting_tool import (
     CRIMINAL_FIRST_INSTANCE_JUDGMENT_DOCUMENT_TYPE,
     CriminalFirstInstanceJudgmentDraftingTool,
@@ -15,7 +14,7 @@ from .criminal_second_instance_judgment_drafting_tool import (
     CriminalSecondInstanceJudgmentDraftingTool,
     create_second_instance_criminal_judgment_drafting_tool,
 )
-
+from .document_drafting_support import extract_json_payload
 
 SCENARIO_TO_JUDGMENT_DOCUMENT_TYPE = {
     "CR": CRIMINAL_FIRST_INSTANCE_JUDGMENT_DOCUMENT_TYPE,
@@ -71,7 +70,7 @@ def normalize_judgment_document_payload(
     payload: Any,
     *,
     document_type: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     normalized_document_type = normalize_judgment_document_type(document_type)
     source = payload if isinstance(payload, dict) else {}
     normalized_from_payload = normalize_judgment_document_type(
@@ -87,7 +86,7 @@ def extract_judgment_document_tool_payload(
     records: list[Any],
     *,
     document_type: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     tool_name = get_judgment_document_tool_name(document_type)
 
     for record in reversed(list(records or [])):
@@ -129,7 +128,7 @@ def render_judgment_document_payload(
     *,
     document_type: str,
     document_text: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     normalized_document_type = normalize_judgment_document_type(document_type)
     raw_result = JUDGMENT_DOCUMENT_TYPE_TO_RENDERER[normalized_document_type](
         agent,

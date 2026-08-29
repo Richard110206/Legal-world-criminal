@@ -11,10 +11,7 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-from camel.toolkits import FunctionTool
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +36,11 @@ class ProsecutorAgent:
         agent_id: str,
         name: str,
         procuratorate: str = DEFAULT_PROCURATORATE,
-        scenario_type: Optional[str] = None,
-        scenario_data: Optional[Dict[str, Any]] = None,
+        scenario_type: str | None = None,
+        scenario_data: dict[str, Any] | None = None,
         system_prompt: str = "",
-        tools: Optional[List[Any]] = None,
-        model_type: Optional[str] = None,
+        tools: list[Any] | None = None,
+        model_type: str | None = None,
         **kwargs: Any,
     ) -> None:
         self.agent_id = agent_id
@@ -55,10 +52,10 @@ class ProsecutorAgent:
         self.model_type = model_type
 
         # 协议表面字段（兼容 BaseAgent 访问模式）
-        self.config_path: Optional[str] = kwargs.get("config_path")
+        self.config_path: str | None = kwargs.get("config_path")
         self.storage: Any = kwargs.get("storage")
         self.chat_agent = None
-        self._last_tool_call_records: List[Any] = []
+        self._last_tool_call_records: list[Any] = []
         self._is_active = False
 
         if scenario_type and not system_prompt:
@@ -73,10 +70,10 @@ class ProsecutorAgent:
 
     def activate(
         self,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         model_platform: Any = None,
-        model_type: Optional[str] = None,
-        tools: Optional[List[Any]] = None,
+        model_type: str | None = None,
+        tools: list[Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """激活检察官 agent：创建真实 CAMEL ChatAgent。
@@ -88,12 +85,14 @@ class ProsecutorAgent:
         if model_type:
             self.model_type = model_type
 
-        from ..utils.model_config import (
-            DEFAULT_RUNTIME_OPENAI_MODEL,
-            build_runtime_openai_chat_config,
-            resolve_openai_chat_model,
+        from ..agents.base_agent import (
+            _resolve_agent_api_base_url,
+            _resolve_agent_api_key,
+            _resolve_agent_model_type,
         )
-        from ..agents.base_agent import _resolve_agent_model_type, _resolve_agent_api_base_url, _resolve_agent_api_key
+        from ..utils.model_config import (
+            build_runtime_openai_chat_config,
+        )
 
         platform = model_platform
         if platform is None:
@@ -175,7 +174,7 @@ class ProsecutorAgent:
         )
         return content
 
-    def get_prompt_info(self) -> Dict[str, Any]:
+    def get_prompt_info(self) -> dict[str, Any]:
         return {
             "agent_id": self.agent_id,
             "agent_name": self.name,
@@ -202,7 +201,7 @@ class ProsecutorAgent:
             "3. 仅输出发言文本，不要写括号动作或语气旁白。\n"
         )
 
-    def add_runtime_tools(self, tools: List[Any]) -> None:
+    def add_runtime_tools(self, tools: list[Any]) -> None:
         """动态注入运行时工具（由 stage_tool_resolver 调用）。"""
         existing_names = {
             t.get_function_name()
@@ -229,11 +228,11 @@ class ProsecutorAgent:
 
     # ── 以下属性兼容原始项目的访问模式 ──────────────────────────
     @property
-    def current_handling_case(self) -> Optional[str]:
+    def current_handling_case(self) -> str | None:
         return self.scenario_data.get("case_id") if self.scenario_data else None
 
     @property
-    def case_queue(self) -> List[str]:
+    def case_queue(self) -> list[str]:
         return []
 
 

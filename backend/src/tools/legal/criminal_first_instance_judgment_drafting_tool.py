@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from xml.sax.saxutils import escape
 
 from camel.toolkits import FunctionTool
@@ -91,7 +91,7 @@ def _render_pdf(document_text: str, output_path: Path) -> None:
     doc.build(story)
 
 
-def _build_schema() -> Dict[str, Any]:
+def _build_schema() -> dict[str, Any]:
     return {
         "type": "function",
         "function": {

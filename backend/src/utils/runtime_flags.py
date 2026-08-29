@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 
-
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}
 _VALID_FRONTEND_MODES = {"auto", "legacy", "player_v2"}

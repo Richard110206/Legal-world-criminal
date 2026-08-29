@@ -6,12 +6,12 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
-from .base_scenario import BaseScenario
 from ..player_lawyer.responsibility_marker import build_player_responsibility_marker
-from ..utils.runtime_flags import player_lawyer_ai_surrogate_enabled, player_lawyer_mode_for_frontend
 from ..utils.prompt_profile import resolve_prompt_profile_max_turns
+from ..utils.runtime_flags import player_lawyer_ai_surrogate_enabled, player_lawyer_mode_for_frontend
+from .base_scenario import BaseScenario
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +39,12 @@ class LegalConsultationScenario(BaseScenario):
         self,
         client_agent,
         lawyer_agent,
-        max_turns: Optional[int] = None,
-        output_path: Optional[str] = None,
+        max_turns: int | None = None,
+        output_path: str | None = None,
         verbose: bool = False,
-        map_engine: Optional[Any] = None,
-        checkpoint_manager: Optional[Any] = None,
-        scenario_id: Optional[str] = None,
+        map_engine: Any | None = None,
+        checkpoint_manager: Any | None = None,
+        scenario_id: str | None = None,
         **kwargs,
     ):
         agents = {
@@ -137,7 +137,7 @@ class LegalConsultationScenario(BaseScenario):
                 asyncio.to_thread(agent.step, instruction),
                 timeout=self._agent_step_timeout_seconds(),
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "[LegalConsultationScenario] Agent step timed out: agent=%s; using fallback response",
                 getattr(agent, "agent_id", getattr(agent, "name", "")),
@@ -186,7 +186,7 @@ class LegalConsultationScenario(BaseScenario):
         role: str,
         content: str,
         *,
-        duration: Optional[float] = None,
+        duration: float | None = None,
     ) -> None:
         if not self.map_engine or not content:
             return
@@ -250,7 +250,7 @@ class LegalConsultationScenario(BaseScenario):
         )
         return mode in {"plaintiff", "defendant"}
 
-    async def execute(self) -> Dict[str, Any]:
+    async def execute(self) -> dict[str, Any]:
         client = self.agents["client"]
         lawyer = self.agents["lawyer"]
 
@@ -312,7 +312,7 @@ class LegalConsultationScenario(BaseScenario):
             self._save_result(result)
         return result
 
-    def _build_result(self) -> Dict[str, Any]:
+    def _build_result(self) -> dict[str, Any]:
         return {
             "scenario_type": self.scenario_type,
             "dialog_history": self.dialog_history,
@@ -321,13 +321,13 @@ class LegalConsultationScenario(BaseScenario):
             "finish_reason": self.finish_reason if self.completed else "max_turns",
         }
 
-    def _save_result(self, result: Dict[str, Any]) -> None:
+    def _save_result(self, result: dict[str, Any]) -> None:
         Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.output_path, "w", encoding="utf-8") as file:
             json.dump(result, file, ensure_ascii=False, indent=2)
         self._log(f"结果已保存到 {self.output_path}")
 
-    def _build_checkpoint_data(self) -> Dict[str, Any]:
+    def _build_checkpoint_data(self) -> dict[str, Any]:
         client = self.agents.get("client")
         lawyer = self.agents.get("lawyer")
         return {
@@ -341,7 +341,7 @@ class LegalConsultationScenario(BaseScenario):
             "finish_reason": self.finish_reason,
         }
 
-    async def resume_from_checkpoint(self, checkpoint_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def resume_from_checkpoint(self, checkpoint_data: dict[str, Any]) -> dict[str, Any]:
         self.dialog_history = checkpoint_data.get("dialog_history", [])
         self.turn_count = checkpoint_data.get("turn_count", 0)
         self.completed = checkpoint_data.get("completed", False)

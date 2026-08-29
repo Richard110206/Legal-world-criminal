@@ -6,7 +6,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import yaml
 
@@ -20,7 +20,7 @@ class FileStorageManager:
     杜绝直接文件操作导致的冲突和数据不一致。
     """
 
-    def __init__(self, base_dir: Union[str, Path]):
+    def __init__(self, base_dir: str | Path):
         self.base_dir = Path(base_dir)
         if not self.base_dir.exists():
             self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -83,12 +83,12 @@ class FileStorageManager:
 
     # ── Agent 配置读写 ──
 
-    def load_agent_config(self, agent_path: Union[str, Path]) -> dict:
+    def load_agent_config(self, agent_path: str | Path) -> dict:
         """加载 Agent 的 config.yaml。"""
         config_file = Path(agent_path) / "config.yaml"
         if not config_file.exists():
             raise FileNotFoundError(f"Config not found: {config_file}")
-        with open(config_file, "r", encoding="utf-8") as f:
+        with open(config_file, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         if not isinstance(data, dict):
             logger.warning(f"Config root is not a mapping, using empty config instead: {config_file}")
@@ -101,7 +101,7 @@ class FileStorageManager:
         runtime_file = self.get_case_runtime_path(case_id)
         if not runtime_file.exists():
             raise FileNotFoundError(f"Case runtime not found: {runtime_file}")
-        with open(runtime_file, "r", encoding="utf-8") as f:
+        with open(runtime_file, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         if not isinstance(data, dict):
             logger.warning(f"Case runtime root is not a mapping, using empty runtime instead: {runtime_file}")
@@ -118,7 +118,7 @@ class FileStorageManager:
         tmp_file.replace(runtime_file)
         logger.debug(f"Saved case runtime to {runtime_file}")
 
-    def save_agent_config(self, agent_path: Union[str, Path], data: dict) -> None:
+    def save_agent_config(self, agent_path: str | Path, data: dict) -> None:
         """原子写入 Agent 的 config.yaml。"""
         config_file = Path(agent_path) / "config.yaml"
         config_file.parent.mkdir(parents=True, exist_ok=True)
@@ -129,7 +129,7 @@ class FileStorageManager:
         logger.debug(f"Saved config to {config_file}")
 
     def update_agent_field(
-        self, agent_path: Union[str, Path], field_key: str, new_data: Any
+        self, agent_path: str | Path, field_key: str, new_data: Any
     ) -> None:
         """精准更新 config.yaml 中的单个字段。"""
         config = self.load_agent_config(agent_path)
@@ -140,7 +140,7 @@ class FileStorageManager:
     # ── 队列操作（立即落盘） ──
 
     def append_to_queue(
-        self, agent_path: Union[str, Path], queue_field: str, item: str
+        self, agent_path: str | Path, queue_field: str, item: str
     ) -> None:
         """向队列字段追加元素并立即落盘。队列中不重复保存同一案件。"""
         config = self.load_agent_config(agent_path)
@@ -157,8 +157,8 @@ class FileStorageManager:
         self.save_agent_config(agent_path, config)
 
     def pop_from_queue(
-        self, agent_path: Union[str, Path], queue_field: str
-    ) -> Optional[str]:
+        self, agent_path: str | Path, queue_field: str
+    ) -> str | None:
         """从队列字段弹出首个元素并立即落盘。"""
         config = self.load_agent_config(agent_path)
         queue = config.get(queue_field, [])
@@ -172,7 +172,7 @@ class FileStorageManager:
     # ── 案卷记录读写 ──
 
     def save_case_record(
-        self, case_dir: Union[str, Path], stage_name: str, data: dict
+        self, case_dir: str | Path, stage_name: str, data: dict
     ) -> None:
         """保存案卷阶段记录到律所 /cases/ 目录。"""
         case_dir = Path(case_dir)
@@ -183,17 +183,17 @@ class FileStorageManager:
         logger.info(f"Saved case record: {record_file}")
 
     def load_case_record(
-        self, case_dir: Union[str, Path], stage_name: str
-    ) -> Optional[dict]:
+        self, case_dir: str | Path, stage_name: str
+    ) -> dict | None:
         """读取案卷阶段记录。"""
         record_file = Path(case_dir) / f"{stage_name}_record.json"
         if not record_file.exists():
             return None
-        with open(record_file, "r", encoding="utf-8") as f:
+        with open(record_file, encoding="utf-8") as f:
             return json.load(f)
 
     def save_case_document(
-        self, case_dir: Union[str, Path], doc_name: str, content: str
+        self, case_dir: str | Path, doc_name: str, content: str
     ) -> None:
         """保存文书终稿（起诉书、辩护词、判决书等）。"""
         case_dir = Path(case_dir)
@@ -204,30 +204,30 @@ class FileStorageManager:
         logger.info(f"Saved document: {doc_file}")
 
     def load_case_document(
-        self, case_dir: Union[str, Path], doc_name: str
-    ) -> Optional[str]:
+        self, case_dir: str | Path, doc_name: str
+    ) -> str | None:
         """读取文书终稿。"""
         doc_file = Path(case_dir) / f"{doc_name}.txt"
         if not doc_file.exists():
             return None
-        with open(doc_file, "r", encoding="utf-8") as f:
+        with open(doc_file, encoding="utf-8") as f:
             return f.read()
 
     # ── 通用 YAML/JSON 读写 ──
 
-    def load_yaml(self, filepath: Union[str, Path]) -> dict:
+    def load_yaml(self, filepath: str | Path) -> dict:
         """加载任意 YAML 文件。"""
         filepath = Path(filepath)
         if not filepath.exists():
             raise FileNotFoundError(f"File not found: {filepath}")
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         if not isinstance(data, dict):
             logger.warning(f"YAML root is not a mapping, using empty data instead: {filepath}")
             return {}
         return data
 
-    def save_yaml(self, filepath: Union[str, Path], data: dict) -> None:
+    def save_yaml(self, filepath: str | Path, data: dict) -> None:
         """保存任意 YAML 文件。"""
         filepath = Path(filepath)
         filepath.parent.mkdir(parents=True, exist_ok=True)

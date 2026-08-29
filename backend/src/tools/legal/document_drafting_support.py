@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
 def strip_code_fences(text: str) -> str:
@@ -14,9 +14,7 @@ def strip_code_fences(text: str) -> str:
         inner = raw[3:-3].strip()
         if inner.lower().startswith("markdown"):
             inner = inner[8:].strip()
-        elif inner.lower().startswith("text"):
-            inner = inner[4:].strip()
-        elif inner.lower().startswith("json"):
+        elif inner.lower().startswith("text") or inner.lower().startswith("json"):
             inner = inner[4:].strip()
         return inner.strip()
     return raw
@@ -58,7 +56,7 @@ def extract_document_body(
     return extracted.strip()
 
 
-def extract_json_payload(raw_result: Any) -> Dict[str, Any]:
+def extract_json_payload(raw_result: Any) -> dict[str, Any]:
     if isinstance(raw_result, dict):
         return raw_result
 

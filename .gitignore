@@ -97,3 +97,6 @@ backend_image_v3_amd64.tar.gz
 frontend/tsconfig.tsbuildinfo
 frontend/.tsbuild-node/
 frontend/*.log.err
+
+# stray scoring test artifacts (case_output_dir=x)
+backend/x/

@@ -1,4 +1,7 @@
 import type {
+  AdaptiveAnswerResponse,
+  AdaptiveHistorySummary,
+  AdaptivePlan,
   AuthResponse,
   CaseListResponse,
   CitationFeedback,
@@ -184,5 +187,22 @@ export const api = {
     return request<SkillCardDetail>(
       `/teaching/skill-cards/${encodeURIComponent(studentId)}/${encodeURIComponent(slug)}`,
     );
+  },
+
+  async adaptivePlan(mode: "diagnostic" | "review", limit = 5): Promise<AdaptivePlan> {
+    return request<AdaptivePlan>(
+      `/adaptive/plan?mode=${mode}&limit=${limit}`,
+    );
+  },
+
+  async adaptiveAnswer(itemId: string, selected: string): Promise<AdaptiveAnswerResponse> {
+    return request<AdaptiveAnswerResponse>("/adaptive/answer", {
+      method: "POST",
+      body: JSON.stringify({ item_id: itemId, selected }),
+    });
+  },
+
+  async adaptiveHistory(): Promise<AdaptiveHistorySummary> {
+    return request<AdaptiveHistorySummary>("/adaptive/history");
   },
 };

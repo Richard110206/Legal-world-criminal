@@ -58,6 +58,10 @@ cd backend && ../.venv/Scripts/python.exe scripts/reset_sandbox.py
 
 pydantic-settings 分组（Teaching/Embedding/Database/Model），`get_settings()` 带 lru_cache（测试改 env 后需 `get_settings.cache_clear()`）。消除 law_embedding 硬编码云端点。旧模块的 `os.getenv` 渐进迁移，环境变量名不变。
 
+### 自适应模块 `src/adaptive/`（EduBrain 融合）
+
+学长 planner vendored 原样（`edubrain_planner.py` 黑盒，不魔改）；`service.py` 做题库缓存/判分/历史存储/精学画像 boost（missing +45 / partial +18 重排，打 case_weakness 标，不污染 evidence）。数据在 `backend/adaptive_data/`（30 题/Q矩阵/10 知识点）。模式：diagnostic（预习冷启动，无 case 信号）/ review（复习，带 boost）。历史 `sandbox_data/adaptive/{sid}/history.jsonl`（env `SIMLAW_ADAPTIVE_DATA_DIR` 隔离）。判分只在提交侧（plan 无答案防泄露）。前端 HeaderBar 三入口 + `AdaptiveQuiz.vue`（App.vue 的 activeView 切换，无 vue-router）。测试 `tests/test_adaptive.py`。
+
 ### 刑事流程状态机（理解一切的前提）
 
 ```

@@ -54,6 +54,7 @@ logging.getLogger("camel.camel.agents.chat_agent").setLevel(logging.WARNING)
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
+from src.adaptive.routes import router as adaptive_router  # noqa: E402
 from src.human_eval.routes import create_human_eval_router  # noqa: E402
 from src.player_lawyer.routes import (  # noqa: E402
     router as player_lawyer_router,
@@ -97,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(player_lawyer_router)
     set_storage_provider(_teaching_storage_for_request)
     app.include_router(teaching_router)
+    app.include_router(adaptive_router)
     app.include_router(
         create_human_eval_router(
             current_user_dependency=_get_current_user_dep(),

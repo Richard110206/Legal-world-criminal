@@ -314,3 +314,65 @@ export interface SkillCardSummary {
 export interface SkillCardDetail extends SkillCardSummary {
   content: string;
 }
+
+// ── Adaptive review (EduBrain planner) ──
+export interface AdaptiveRecommendation {
+  rank: number;
+  item_id: string;
+  knowledge_id: string;
+  knowledge_name: string;
+  stem: string;
+  options: Record<string, string>;
+  cognitive_dimension: string;
+  difficulty: number;
+  reason_code: string;
+  reason: string;
+  score: number;
+  case_weakness?: "missing" | "partial";
+}
+
+export interface AdaptiveKnowledgeEvidence {
+  knowledge_id: string;
+  knowledge_name: string;
+  event_count: number;
+  item_count: number;
+  posterior_mean: number;
+  evidence_status: string;
+  actionability: string;
+}
+
+export interface AdaptivePlan {
+  schema_version: string;
+  generated_at: string;
+  mode: string;
+  student_id: string;
+  recommendations: AdaptiveRecommendation[];
+  knowledge_evidence: AdaptiveKnowledgeEvidence[];
+  case_weakness_signals?: Record<string, string>;
+  warnings?: string[];
+}
+
+export interface AdaptiveLegalBasis {
+  law_name: string;
+  article: string;
+  text: string;
+}
+
+export interface AdaptiveAnswerResponse {
+  ok: boolean;
+  item_id: string;
+  selected: string;
+  correct: boolean;
+  answer: string[];
+  rationale: string;
+  misconceptions_hit: string[];
+  legal_basis: AdaptiveLegalBasis[];
+  knowledge_name: string;
+}
+
+export interface AdaptiveHistorySummary {
+  student_id: string;
+  total_answers: number;
+  total_correct: number;
+  by_knowledge: Record<string, { events: number; correct: number; accuracy: number }>;
+}

@@ -42,7 +42,6 @@ cd backend && docker compose up -d   # postgres + backend（健康检查已配�
 - **三层学习报告**：即时警示 chip → 阶段批阅抽屉 → 学期雷达档案（成长曲线/知识缺口/练习推荐）
 - **技能卡闭环**：批阅弱点自动沉淀为个人技能卡，下一局可携带上场
 - **辩护效果真实反馈**：审查起诉阶段辩护意见成立可促成不起诉提前结案
-- **预习/复习自适应（EduBrain 融合）**：顶部导航三入口——预习（诊断测验）/ 精学·案例教学法 / 复习（弱点补强）。自适应引擎基于答题历史做知识点掌握度后验估计，按"证据不足→加采、弱点→补救、已稳→间隔复习"策略推送试题；**精学画像的知识缺口会提升对应题目优先级**（透明 boost，标注"案例弱点"），作答反馈附解析、易错点与法条原文溯源
 
 ## 刑事流程
 
@@ -83,11 +82,9 @@ backend/
 │   ├── scenarios/             # 六阶段场景实现
 │   ├── orchestration/         # 事件总线 + 案件状态机 + 编排器
 │   ├── teaching/              # ★ 教学评分管线（见下）
-│   ├── adaptive/              # ★ 自适应复习（EduBrain planner vendored + 试题推送 API）
 │   ├── player_lawyer/         # 玩家扮演辩护律师子系统
 │   ├── pipeline/              # 阶段→工具权限 manifest
 │   └── config.py              # ★ pydantic-settings 集中配置
-├── adaptive_data/             # ★ EduBrain 题库（30 道已审核刑法题 + Q 矩阵 + 10 知识点）
 ├── tests/                     # ★ pytest 离线测试套件（NLI 隔离）
 ├── legal_corpus/processed/    # 本地法条库（刑法 504 + 刑诉法 308，BM25/BM25F）
 └── scripts/                   # 数据构建/验证/回填脚本
@@ -117,9 +114,6 @@ backend/
 | `GET /api/teaching/profile/{student}` | 学习者画像 |
 | `GET /api/teaching/report/{student}` | 学期报告 + 推荐 + 技能卡 |
 | `GET /api/teaching/scoring-tasks` | 评分队列监控 |
-| `GET /api/adaptive/plan?mode=diagnostic\|review` | 自适应试题推荐（含推荐理由） |
-| `POST /api/adaptive/answer` | 提交作答（判分 + 解析/易错点/法条溯源） |
-| `GET /api/adaptive/history` | 知识点掌握证据汇总 |
 
 ## 开发
 

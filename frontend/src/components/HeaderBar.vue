@@ -8,16 +8,6 @@ const session = useSession();
 
 const showDossier = ref(false);
 
-const props = defineProps<{ view?: "case" | "preview" | "review" }>();
-const emit = defineEmits<{ (e: "navigate", view: "case" | "preview" | "review"): void }>();
-
-type AppView = "case" | "preview" | "review";
-const navItems: { key: AppView; label: string; title: string }[] = [
-  { key: "preview", label: "预习", title: "诊断测验：摸底当前知识点掌握情况" },
-  { key: "case", label: "精学 · 案例教学法", title: "进入案件工作台，扮演辩护律师走完刑事流程" },
-  { key: "review", label: "复习", title: "弱点补强：基于画像与答题历史的试题推送" },
-];
-
 const wsDotClass = computed(() => {
   switch (session.state.wsStatus) {
     case "open":
@@ -64,18 +54,15 @@ const accent = computed(() => stageAccent(session.state.caseState));
     </div>
 
     <div class="hdr__center">
-      <nav class="hdr__nav" aria-label="学习模块">
-        <button
-          v-for="item in navItems"
-          :key="item.key"
-          class="hdr__navBtn"
-          :class="{ 'hdr__navBtn--active': (props.view ?? 'case') === item.key }"
-          :title="item.title"
-          @click="emit('navigate', item.key)"
-        >
-          {{ item.label }}
-        </button>
-      </nav>
+      <div class="hdr__caseState" :style="{ '--accent': accent }">
+        <span class="hdr__caseStateKicker">CURRENT STAGE</span>
+        <span class="hdr__caseStateValue">
+          {{ session.state.caseState || "空闲" }}
+        </span>
+        <span v-if="session.state.caseId" class="hdr__caseId mono">
+          case · {{ session.state.caseId }}
+        </span>
+      </div>
     </div>
 
     <div class="hdr__right">
@@ -161,32 +148,43 @@ const accent = computed(() => stageAccent(session.state.caseState));
   text-align: center;
 }
 
-.hdr__nav {
+.hdr__caseState {
   display: inline-flex;
-  gap: 6px;
-  padding: 5px;
-  border: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.25);
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 28px;
+  position: relative;
 }
-.hdr__navBtn {
+.hdr__caseState::before,
+.hdr__caseState::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+.hdr__caseState::before { left: 0; }
+.hdr__caseState::after { right: 0; }
+
+.hdr__caseStateKicker {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  color: var(--parchment-dim);
+}
+.hdr__caseStateValue {
   font-family: "Noto Serif SC", var(--font-display);
-  font-size: 0.84rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent, var(--parchment));
   letter-spacing: 0.04em;
-  color: var(--parchment-muted);
-  background: transparent;
-  border: 1px solid transparent;
-  padding: 6px 16px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.hdr__navBtn:hover {
-  color: var(--parchment);
-  border-color: var(--line-strong);
-}
-.hdr__navBtn--active {
-  color: var(--parchment);
-  border-color: rgba(176, 138, 62, 0.6);
-  background: rgba(176, 138, 62, 0.1);
+.hdr__caseId {
+  font-size: 0.7rem;
+  color: var(--parchment-dim);
 }
 
 .hdr__right {

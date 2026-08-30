@@ -171,16 +171,9 @@ teaching/
 
 ## 五、关键技术决策
 
-### 自适应模块融合（2026-08-30，EduBrain 接入）
+### 工程化基建（2026-08-30 重构，全部验证通过后落地）
 
-精学 → 复习闭环落地：`src/adaptive/`（vendored 学长 `edubrain_planner.py` 原样不动 + `service.py` + `routes.py`），题库/Q矩阵/知识点在 `backend/adaptive_data/`（30 题 10 知识点，teacher-approved）。
-
-- **决策：算法不魔改**——学长 planner 视为黑盒；精学画像（learner profile knowledge_state 的 missing/partial，中文名与题库 canonical_name 精确+包含匹配）作为**透明后处理 boost**（missing +45 / partial +18 分重排），推荐项打 `case_weakness` 标，不污染其证据模型（作答历史是唯一 evidence 来源）
-- 模式：`diagnostic`（预习=冷启动诊断，无 case 信号）/ `review`（复习=弱点补强，带 boost）
-- 存储：`sandbox_data/adaptive/{student_id}/history.jsonl`（append-only，env `SIMLAW_ADAPTIVE_DATA_DIR` 可隔离）；判分在提交侧（plan 不含答案，防泄露）
-- API：`/api/adaptive/plan|answer|history|status`（挂载于 `src/api/__init__.py`）
-- 前端：HeaderBar 三入口导航（预习/精学·案例教学法/复习），`AdaptiveQuiz.vue`（推荐→作答→判分反馈：解析/命中易错点/法条原文→下一题→答完自动重规划；右侧知识点掌握证据条）
-- 测试：`tests/test_adaptive.py` 7 用例（冷启动/判分/历史累积/boost 生效/diagnostic 不受画像影响）1. **API 层模块化**：原 4536 行 `ws_server.py` 巨石拆为 `src/api/` 17 个模块（app_state 进程单例 / deps 依赖 / 6 组路由 / ws_endpoint / lifecycle / 领域服务），`ws_server.py` 保留 17 行薄入口，`uvicorn ws_server:app` 契约不变。循环依赖三招：bottom-import、lazy trampoline、使用点延迟 import——ruff I001 会重排 import 破坏加载次序，改 api 包后必须 `import ws_server` 冒烟
+1. **API 层模块化**：原 4536 行 `ws_server.py` 巨石拆为 `src/api/` 17 个模块（app_state 进程单例 / deps 依赖 / 6 组路由 / ws_endpoint / lifecycle / 领域服务），`ws_server.py` 保留 17 行薄入口，`uvicorn ws_server:app` 契约不变。循环依赖三招：bottom-import、lazy trampoline、使用点延迟 import——ruff I001 会重排 import 破坏加载次序，改 api 包后必须 `import ws_server` 冒烟
 2. **评分任务队列**：daemon 线程（进程退出即丢）→ `teaching/task_queue.py`（SQLite WAL 持久化 + 2 worker 线程池 + 幂等键 + 崩溃恢复 + 3 次重试），`GET /api/teaching/scoring-tasks` 监控、`POST .../retry-failed` 运维
 3. **pytest 正规化**：`backend/tests/`（conftest 全隔离：NLI 禁载、目录指向 tmp、FakeJudge），26 用例 ~5s；`scripts/test_teaching.py` 转 wrapper
 4. **lint/CI**：根 `pyproject.toml`（ruff 规则集 + pytest 配置 + per-file-ignores），`.github/workflows/ci.yml`：ruff → 装配冒烟（≥50 路由）→ pytest → verify_criminal → vue-tsc + build。存量债务（F811 双定义等）带注释豁免，待专项清理

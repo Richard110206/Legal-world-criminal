@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted } from "vue";
 import { useSession } from "./composables/useSession";
 import AuthPanel from "./components/AuthPanel.vue";
 import HeaderBar from "./components/HeaderBar.vue";
@@ -7,7 +7,6 @@ import StageRail from "./components/StageRail.vue";
 import ToolPanel from "./components/ToolPanel.vue";
 import DialogueFeed from "./components/DialogueFeed.vue";
 import StageBackdrop from "./components/StageBackdrop.vue";
-import AdaptiveQuiz from "./components/AdaptiveQuiz.vue";
 
 const session = useSession();
 onMounted(() => {
@@ -15,19 +14,12 @@ onMounted(() => {
 });
 
 const isLoggedIn = computed(() => session.state.email !== null);
-
-type AppView = "case" | "preview" | "review";
-const activeView = ref<AppView>("case");
-
-function navigate(view: AppView): void {
-  activeView.value = view;
-}
 </script>
 
 <template>
   <div class="app-shell">
     <template v-if="isLoggedIn">
-      <HeaderBar :view="activeView" @navigate="navigate" />
+      <HeaderBar />
       <div v-if="session.state.wsError" class="banner" role="alert">
         <span class="banner__seal">!</span>
         <div class="banner__body">
@@ -36,16 +28,7 @@ function navigate(view: AppView): void {
         </div>
         <button class="banner__close" @click="session.dismissError">×</button>
       </div>
-
-      <!-- 预习 / 复习：自适应试题推送（EduBrain） -->
-      <AdaptiveQuiz
-        v-if="activeView !== 'case'"
-        :mode="activeView === 'preview' ? 'diagnostic' : 'review'"
-        @back="navigate('case')"
-      />
-
-      <!-- 精学：案件工作台（案例教学法） -->
-      <main v-else class="stage-screen">
+      <main class="stage-screen">
         <!-- 左：状态机阶段轨 -->
         <aside class="stage-screen__rail">
           <StageRail />
